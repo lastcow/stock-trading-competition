@@ -1,71 +1,41 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from "react";
 
-const ADMIN_EMAIL = 'joy@zheng.me';
-const ADMIN_PASSWORD = 'Paradise@188';
-const STORAGE_KEY = 'trading_competition_admin';
-
-export interface AuthState {
-  isAdmin: boolean;
-  adminEmail: string | null;
-}
+const ADMIN_KEY = "trading_competition_admin";
+const TOKEN_KEY = "admin_simple_token";
 
 export function useAuth() {
-  const [authState, setAuthState] = useState<AuthState>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return { isAdmin: true, adminEmail: parsed.email || null };
-      }
-    } catch {
-      // ignore
-    }
-    return { isAdmin: false, adminEmail: null };
-  });
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<{ email: string; name?: string } | null>(null);
 
-  const login = useCallback((email: string, password: string): boolean => {
-    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-      const state = { isAdmin: true, adminEmail: email };
-      setAuthState(state);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ email }));
-      return true;
+  useEffect(() => {
+    const stored = localStorage.getItem(ADMIN_KEY);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        setUser(parsed.user);
+        setIsAdmin(true);
+      } catch {
+        localStorage.removeItem(ADMIN_KEY);
+        localStorage.removeItem(TOKEN_KEY);
+      }
     }
-    return false;
+    setIsLoading(false);
+  }, []);
+
+  const login = useCallback((result: { token: string; simpleToken: string; user: { email: string; name?: string } }) => {
+    localStorage.setItem(ADMIN_KEY, JSON.stringify(result));
+    localStorage.setItem(TOKEN_KEY, result.simpleToken);
+    setUser(result.user);
+    setIsAdmin(true);
   }, []);
 
   const logout = useCallback(() => {
-    setAuthState({ isAdmin: false, adminEmail: null });
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(ADMIN_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    setUser(null);
+    setIsAdmin(false);
   }, []);
 
-  const checkAdmin = useCallback((): boolean => {
-    return authState.isAdmin;
-  }, [authState.isAdmin]);
-
-  // Listen for storage changes from other tabs
-  useEffect(() => {
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) {
-        if (e.newValue) {
-          try {
-            const parsed = JSON.parse(e.newValue);
-            setAuthState({ isAdmin: true, adminEmail: parsed.email || null });
-          } catch {
-            setAuthState({ isAdmin: false, adminEmail: null });
-          }
-        } else {
-          setAuthState({ isAdmin: false, adminEmail: null });
-        }
-      }
-    };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, []);
-
-  return {
-    ...authState,
-    login,
-    logout,
-    checkAdmin,
-  };
+  return { isAdmin, isLoading, user, login, logout };
 }

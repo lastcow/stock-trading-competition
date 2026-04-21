@@ -1,31 +1,23 @@
-import type { ReactNode } from 'react';
-import { createContext, useContext } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { createContext, useContext, type ReactNode } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
-interface AuthContextValue {
+interface AuthContextType {
   isAdmin: boolean;
-  adminEmail: string | null;
-  login: (email: string, password: string) => boolean;
+  isLoading: boolean;
+  user: { email: string; name?: string } | null;
+  login: (result: { token: string; simpleToken: string; user: { email: string; name?: string } }) => void;
   logout: () => void;
-  checkAdmin: () => boolean;
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null);
+const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
-
-  return (
-    <AuthContext.Provider value={auth}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
 }
 
 export function useAuthContext() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuthContext must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuthContext must be used within AuthProvider");
+  return ctx;
 }

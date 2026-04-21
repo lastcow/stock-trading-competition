@@ -1,10 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState } from "react";
 
-export interface Column<T> {
+interface Column<T> {
   key: string;
   title: string;
-  width?: string;
-  align?: 'left' | 'center' | 'right';
+  align?: "left" | "right" | "center";
   render: (item: T, index: number) => React.ReactNode;
   sortable?: boolean;
   sortKey?: (item: T) => number | string;
@@ -13,146 +12,100 @@ export interface Column<T> {
 interface DataTableProps<T> {
   columns: Column<T>[];
   data: T[];
-  keyExtractor: (item: T) => string;
+  keyExtractor: (item: T) => string | number;
   rankAccessor?: (item: T) => number;
 }
 
-export default function DataTable<T>({
-  columns,
-  data,
-  keyExtractor,
-  rankAccessor,
-}: DataTableProps<T>) {
-  const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-
-  const handleSort = useCallback(
-    (col: Column<T>) => {
-      if (!col.sortable || !col.sortKey) return;
-      if (sortColumn === col.key) {
-        setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
-      } else {
-        setSortColumn(col.key);
-        setSortDirection('desc');
-      }
-    },
-    [sortColumn]
-  );
+export default function DataTable<T>({ columns, data, keyExtractor, rankAccessor }: DataTableProps<T>) {
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const sortedData = [...data];
-  if (sortColumn) {
-    const col = columns.find((c) => c.key === sortColumn);
-    if (col?.sortKey) {
+  if (sortCol) {
+    const col = columns.find((c) => c.key === sortCol);
+    if (col?.sortable && col.sortKey) {
       sortedData.sort((a, b) => {
-        const aVal = col.sortKey!(a);
-        const bVal = col.sortKey!(b);
-        if (typeof aVal === 'number' && typeof bVal === 'number') {
-          return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
-        }
-        return sortDirection === 'asc'
-          ? String(aVal).localeCompare(String(bVal))
-          : String(bVal).localeCompare(String(aVal));
+        const av = col.sortKey!(a);
+        const bv = col.sortKey!(b);
+        return sortDir === "asc" ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
       });
     }
   }
 
-  const getRankBadgeStyle = (rank: number) => {
-    if (rank === 1) return { background: '#FFFBEB', color: '#D97706', borderColor: '#FDE68A' };
-    if (rank === 2) return { background: '#F1F5F9', color: '#64748B', borderColor: '#CBD5E1' };
-    if (rank === 3) return { background: '#FFF7ED', color: '#C2410C', borderColor: '#FED7AA' };
+  const getRankStyle = (rank: number) => {
+    if (rank === 1) return { bg: "#FFFBEB", color: "#D97706", border: "#FDE68A" };
+    if (rank === 2) return { bg: "#F1F5F9", color: "#64748B", border: "#CBD5E1" };
+    if (rank === 3) return { bg: "#FFF7ED", color: "#C2410C", border: "#FED7AA" };
     return null;
   };
 
-  const renderRankBadge = (rank: number) => {
-    const style = getRankBadgeStyle(rank);
-    if (!style) {
-      return (
-        <span className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold" style={{ color: '#64748B' }}>
-          {rank}
-        </span>
-      );
-    }
-    return (
-      <span
-        className="flex h-8 w-8 items-center justify-center rounded-full border text-sm font-bold"
-        style={{ background: style.background, color: style.color, borderColor: style.borderColor }}
-      >
-        {rank}
-      </span>
-    );
-  };
-
   return (
-    <div
-      className="w-full overflow-x-auto rounded-xl border"
-      style={{ borderColor: '#E2E8F0' }}
-    >
-      <table className="w-full text-left">
+    <div className="overflow-x-auto rounded-xl border" style={{ borderColor: "#E2E8F0" }}>
+      <table className="w-full text-sm">
         <thead>
-          <tr style={{ background: '#F1F5F9' }}>
+          <tr style={{ background: "#F1F5F9" }}>
             {rankAccessor && (
-              <th
-                className="px-4 py-3 text-center text-xs font-semibold uppercase"
-                style={{ width: '60px', color: '#64748B', letterSpacing: '0.04em' }}
-              >
+              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider" style={{ color: "#64748B", width: 60 }}>
                 排名
               </th>
             )}
             {columns.map((col) => (
               <th
                 key={col.key}
-                className={`px-4 py-3 text-xs font-semibold uppercase ${col.sortable ? 'cursor-pointer select-none hover:text-[#0F172A]' : ''}`}
-                style={{
-                  width: col.width,
-                  color: '#64748B',
-                  letterSpacing: '0.04em',
-                  textAlign: col.align || 'left',
+                className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"}`}
+                style={{ color: "#64748B", cursor: col.sortable ? "pointer" : "default" }}
+                onClick={() => {
+                  if (col.sortable) {
+                    setSortCol(col.key);
+                    setSortDir(sortCol === col.key && sortDir === "desc" ? "asc" : "desc");
+                  }
                 }}
-                onClick={() => handleSort(col)}
               >
-                <span className="inline-flex items-center gap-1">
-                  {col.title}
-                  {col.sortable && sortColumn === col.key && (
-                    <span className="text-[10px]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                  )}
-                </span>
+                {col.title} {col.sortable && sortCol === col.key ? (sortDir === "desc" ? "▼" : "▲") : ""}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {sortedData.map((item, rowIndex) => (
-            <tr
-              key={keyExtractor(item)}
-              className="transition-colors hover:bg-[#F1F5F9]"
-              style={{
-                background: rowIndex % 2 === 1 ? '#FAFBFC' : 'transparent',
-                borderBottom: '1px solid #F1F5F9',
-              }}
-            >
-              {rankAccessor && (
-                <td className="px-4 py-3">
-                  <div className="flex justify-center">
-                    {renderRankBadge(rankAccessor(item))}
-                  </div>
-                </td>
-              )}
-              {columns.map((col) => (
-                <td
-                  key={col.key}
-                  className="px-4 py-3 text-sm"
-                  style={{
-                    textAlign: col.align || 'left',
-                    color: '#1E293B',
-                  }}
-                >
-                  {col.render(item, rowIndex)}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {sortedData.map((item, idx) => {
+            const rank = rankAccessor ? rankAccessor(item) : 0;
+            const rankStyle = getRankStyle(rank);
+            return (
+              <tr
+                key={keyExtractor(item)}
+                className="border-b transition-colors hover:bg-slate-50"
+                style={{ borderColor: "#F1F5F9" }}
+              >
+                {rankAccessor && (
+                  <td className="px-4 py-3 text-center">
+                    {rankStyle ? (
+                      <span
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold"
+                        style={{ background: rankStyle.bg, color: rankStyle.color, border: `1px solid ${rankStyle.border}` }}
+                      >
+                        {rank}
+                      </span>
+                    ) : (
+                      <span className="text-sm font-medium" style={{ color: "#64748B" }}>{rank}</span>
+                    )}
+                  </td>
+                )}
+                {columns.map((col) => (
+                  <td
+                    key={col.key}
+                    className={`px-4 py-3 ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"}`}
+                    style={{ color: "#1E293B" }}
+                  >
+                    {col.render(item, idx)}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
   );
 }
+
+export type { Column };
