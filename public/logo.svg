@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 40" width="160" height="40">
+  <!-- Upward trending line chart -->
+  <polyline points="4,32 20,24 36,26 52,14 68,18 84,6" 
+    fill="none" 
+    stroke="#4F46E5" 
+    stroke-width="3" 
+    stroke-linecap="round" 
+    stroke-linejoin="round"/>
+  <!-- Arrow head -->
+  <polygon points="80,6 84,6 84,10" fill="#4F46E5"/>
+  <!-- Trophy silhouette -->
+  <path d="M95 8h22v2c0 6-4 10-9 12v2h-4v-2c-5-2-9-6-9-12V8zm4 2v2c0 4 2.5 7 7 7s7-3 7-7v-2H99zm-2 18h18v4H97v-4z" 
+    fill="#0F172A"/>
+  <!-- Trophy handles -->
+  <path d="M95 10h-3c-1 0-2 1-2 3s1 4 3 5" 
+    fill="none" 
+    stroke="#0F172A" 
+    stroke-width="2" 
+    stroke-linecap="round"/>
+  <path d="M117 10h3c1 0 2 1 2 3s-1 4-3 5" 
+    fill="none" 
+    stroke="#0F172A" 
+    stroke-width="2" 
+    stroke-linecap="round"/>
+</svg>

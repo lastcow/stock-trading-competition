@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Chart grid background -->
+  <rect x="30" y="30" width="140" height="120" rx="8" 
+    fill="none" 
+    stroke="#CBD5E1" 
+    stroke-width="1.5"/>
+  <!-- Grid lines horizontal -->
+  <line x1="30" y1="60" x2="170" y2="60" stroke="#E2E8F0" stroke-width="1"/>
+  <line x1="30" y1="90" x2="170" y2="90" stroke="#E2E8F0" stroke-width="1"/>
+  <line x1="30" y1="120" x2="170" y2="120" stroke="#E2E8F0" stroke-width="1"/>
+  <!-- Grid lines vertical -->
+  <line x1="65" y1="30" x2="65" y2="150" stroke="#E2E8F0" stroke-width="1"/>
+  <line x1="100" y1="30" x2="100" y2="150" stroke="#E2E8F0" stroke-width="1"/>
+  <line x1="135" y1="30" x2="135" y2="150" stroke="#E2E8F0" stroke-width="1"/>
+  
+  <!-- Dotted line chart -->
+  <polyline points="40,130 70,100 100,110 130,70 160,50" 
+    fill="none" 
+    stroke="#94A3B8" 
+    stroke-width="2" 
+    stroke-dasharray="6,4"/>
+  
+  <!-- Data points -->
+  <circle cx="40" cy="130" r="4" fill="#94A3B8"/>
+  <circle cx="70" cy="100" r="4" fill="#94A3B8"/>
+  <circle cx="100" cy="110" r="4" fill="#94A3B8"/>
+  <circle cx="130" cy="70" r="4" fill="#94A3B8"/>
+  <circle cx="160" cy="50" r="4" fill="#94A3B8"/>
+  
+  <!-- Magnifying glass -->
+  <circle cx="135" cy="135" r="28" 
+    fill="none" 
+    stroke="#94A3B8" 
+    stroke-width="3"/>
+  <line x1="155" y1="155" x2="180" y2="180" 
+    stroke="#94A3B8" 
+    stroke-width="4" 
+    stroke-linecap="round"/>
+  
+  <!-- Handle detail -->
+  <circle cx="135" cy="135" r="18" 
+    fill="none" 
+    stroke="#CBD5E1" 
+    stroke-width="1.5"/>
+</svg>
