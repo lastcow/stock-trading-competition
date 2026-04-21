@@ -1,10 +1,13 @@
 import { Routes, Route } from 'react-router'
-import Home from './pages/Home'
+import Layout from './components/Layout'
+import Dashboard from './pages/Dashboard'
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-    </Routes>
+    <Layout>
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+      </Routes>
+    </Layout>
   )
 }
