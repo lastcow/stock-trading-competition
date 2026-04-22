@@ -17,7 +17,7 @@ export default function PerformanceChart({ data, initialCapital }: PerformanceCh
     const months = [4, 5, 6, 7, 8, 9];
     return months.map((m) => {
       const entry: Record<string, number | string> = { month: MONTH_LABELS[m], monthNum: m };
-      data.forEach((item, idx) => {
+      data.forEach((item) => {
         const record = item.monthRecords.find((r) => r.month === m);
         entry[item.participantName] = record ? record.capital : initialCapital;
       });

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   User, Users, Trophy, TrendingUp, BarChart3, Globe,
   Calendar, Wallet, ChevronDown, Crown, Award, Star,
-  Settings, Upload, Download, UserCog, TrendingDown,
+  Settings, UserCog,
 } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { trpc } from "@/providers/trpc";
@@ -60,13 +60,6 @@ export default function Dashboard() {
     onSuccess: () => {
       utils.capital.rankings.invalidate();
       utils.participant.list.invalidate();
-    },
-  });
-
-  const deleteParticipant = trpc.participant.delete.useMutation({
-    onSuccess: () => {
-      utils.participant.list.invalidate();
-      utils.capital.rankings.invalidate();
     },
   });
 
@@ -375,7 +368,6 @@ export default function Dashboard() {
                                       const inputVal = formValues[p.id] || "";
                                       const newCapital = Number(inputVal) || 0;
                                       const change = newCapital > 0 ? newCapital - prevCapital : 0;
-                                      const changePercent = prevCapital > 0 && newCapital > 0 ? (change / prevCapital) * 100 : 0;
                                       return (
                                         <tr key={p.id} className="border-b" style={{ borderColor: "#F1F5F9" }}>
                                           <td className="px-3 py-2.5 font-medium" style={{ color: "#0F172A" }}>{p.name}</td>

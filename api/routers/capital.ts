@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createRouter, publicQuery, adminQuery } from "../middleware";
 import { getDb } from "../queries/connection";
-import { capitalRecords, participants, competitionConfig } from "@db/schema";
+import { capitalRecords, participants } from "@db/schema";
 import { eq, and, sql } from "drizzle-orm";
 
 export const capitalRouter = createRouter({
@@ -230,7 +230,7 @@ export const capitalRouter = createRouter({
       for (const item of input) {
         try {
           const db = getDb();
-          const { capitalRecords, participants, competitionConfig } = await import("@db/schema");
+          const { capitalRecords, participants } = await import("@db/schema");
 
           const p = await db.query.participants.findFirst({
             where: eq(participants.id, item.participantId),

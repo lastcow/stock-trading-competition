@@ -4,8 +4,8 @@ import { useAuth } from "@/hooks/useAuth";
 interface AuthContextType {
   isAdmin: boolean;
   isLoading: boolean;
-  user: { email: string; name?: string } | null;
-  login: (result: { token: string; simpleToken: string; user: { email: string; name?: string } }) => void;
+  user: { email: string; name?: string | null } | null;
+  login: (result: { token: string; simpleToken: string; user: { email: string; name?: string | null } }) => void;
   logout: () => void;
 }
 

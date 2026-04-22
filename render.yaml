@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: stock-trading-competition
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: postgresql://neondb_owner:REDACTED@ep-icy-bread-amswqt0g-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+      - key: APP_SECRET
+        value: REDACTED
+    healthCheckPath: /api/trpc/ping

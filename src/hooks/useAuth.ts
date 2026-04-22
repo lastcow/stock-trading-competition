@@ -6,7 +6,7 @@ const TOKEN_KEY = "admin_simple_token";
 export function useAuth() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [user, setUser] = useState<{ email: string; name?: string } | null>(null);
+  const [user, setUser] = useState<{ email: string; name?: string | null } | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem(ADMIN_KEY);
@@ -23,7 +23,7 @@ export function useAuth() {
     setIsLoading(false);
   }, []);
 
-  const login = useCallback((result: { token: string; simpleToken: string; user: { email: string; name?: string } }) => {
+  const login = useCallback((result: { token: string; simpleToken: string; user: { email: string; name?: string | null } }) => {
     localStorage.setItem(ADMIN_KEY, JSON.stringify(result));
     localStorage.setItem(TOKEN_KEY, result.simpleToken);
     setUser(result.user);
