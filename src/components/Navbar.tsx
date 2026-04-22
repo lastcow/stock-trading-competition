@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { trpc } from "@/providers/trpc";
-import { LogIn, LogOut, ShieldCheck } from "lucide-react";
+import { LogIn, LogOut, ShieldCheck, ClipboardEdit } from "lucide-react";
 
 export default function Navbar() {
   const { isAdmin, user, login, logout } = useAuthContext();
@@ -43,6 +44,14 @@ export default function Navbar() {
         <div className="flex items-center gap-3">
           {isAdmin ? (
             <div className="flex items-center gap-3">
+              <Link
+                to="/admin/entry"
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all hover:bg-indigo-50"
+                style={{ color: "#4F46E5" }}
+              >
+                <ClipboardEdit size={16} />
+                数据录入
+              </Link>
               <span
                 className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
                 style={{ background: "#EEF2FF", color: "#4F46E5" }}
