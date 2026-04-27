@@ -4,33 +4,32 @@ import { getDb } from "../queries/connection";
 import { capitalRecords, participants } from "@db/schema";
 import { eq, and, sql } from "drizzle-orm";
 
+const marketEnum = z.enum(["A_SHARES", "US_STOCKS"]);
+const typeEnum = z.enum(["PERSONAL", "TEAM"]);
+
 export const capitalRouter = createRouter({
-  // Get records by participant
   byParticipant: publicQuery
-    .input(z.object({ participantId: z.number() }))
+    .input(z.object({ participantId: z.number(), market: marketEnum.optional() }))
     .query(async ({ input }) => {
       const db = getDb();
+      const where = input.market
+        ? and(
+            eq(capitalRecords.participantId, input.participantId),
+            eq(capitalRecords.market, input.market)
+          )
+        : eq(capitalRecords.participantId, input.participantId);
       return db.query.capitalRecords.findMany({
-        where: eq(capitalRecords.participantId, input.participantId),
+        where,
         orderBy: (records) => [records.month],
       });
     }),
 
-  // Get records by market and category
   byMarketCategory: publicQuery
-    .input(
-      z.object({
-        market: z.enum(["A_SHARES", "US_STOCKS"]),
-        type: z.enum(["PERSONAL", "TEAM"]),
-      })
-    )
+    .input(z.object({ market: marketEnum, type: typeEnum }))
     .query(async ({ input }) => {
       const db = getDb();
       const pList = await db.query.participants.findMany({
-        where: and(
-          eq(participants.market, input.market),
-          eq(participants.type, input.type)
-        ),
+        where: eq(participants.type, input.type),
       });
       const pIds = pList.map((p) => p.id);
       if (pIds.length === 0) return [];
@@ -38,27 +37,28 @@ export const capitalRouter = createRouter({
       const records = await db
         .select()
         .from(capitalRecords)
-        .where(sql`${capitalRecords.participantId} IN (${sql.join(pIds, sql`, `)})`)
+        .where(
+          and(
+            eq(capitalRecords.market, input.market),
+            sql`${capitalRecords.participantId} IN (${sql.join(pIds, sql`, `)})`
+          )
+        )
         .orderBy(capitalRecords.month);
       return records;
     }),
 
-  // Calculate rankings for a specific month
   rankings: publicQuery
     .input(
       z.object({
-        market: z.enum(["A_SHARES", "US_STOCKS"]),
-        type: z.enum(["PERSONAL", "TEAM"]),
+        market: marketEnum,
+        type: typeEnum,
         month: z.union([z.number().min(4).max(9), z.literal("overall")]),
       })
     )
     .query(async ({ input }) => {
       const db = getDb();
       const pList = await db.query.participants.findMany({
-        where: and(
-          eq(participants.market, input.market),
-          eq(participants.type, input.type)
-        ),
+        where: eq(participants.type, input.type),
       });
       if (pList.length === 0) return [];
 
@@ -69,7 +69,6 @@ export const capitalRouter = createRouter({
 
       const targetMonth = input.month === "overall" ? 9 : input.month;
 
-      // Get all records for these participants up to target month
       const rankings = [];
       for (const p of pList) {
         const records = await db
@@ -78,7 +77,8 @@ export const capitalRouter = createRouter({
           .where(
             and(
               eq(capitalRecords.participantId, p.id),
-              sql`${capitalRecords.month} <= ${targetMonth}` // 修复: 使用 sql 模板
+              eq(capitalRecords.market, input.market),
+              sql`${capitalRecords.month} <= ${targetMonth}`
             )
           )
           .orderBy(capitalRecords.month);
@@ -136,18 +136,17 @@ export const capitalRouter = createRouter({
         });
       }
 
-      // Sort by total return descending
       rankings.sort((a, b) => b.totalReturn - a.totalReturn);
       rankings.forEach((r, i) => { r.rank = i + 1; });
 
       return rankings;
     }),
 
-  // Save or update a capital record (admin only)
   save: adminQuery
     .input(
       z.object({
         participantId: z.number(),
+        market: marketEnum,
         month: z.number().min(4).max(9),
         capital: z.number().positive(),
         inputBy: z.string().default("admin"),
@@ -155,27 +154,25 @@ export const capitalRouter = createRouter({
     )
     .mutation(async ({ input }) => {
       const db = getDb();
-      const { participantId, month, capital, inputBy } = input;
+      const { participantId, market, month, capital, inputBy } = input;
 
-      // Get participant info
       const p = await db.query.participants.findFirst({
         where: eq(participants.id, participantId),
       });
       if (!p) throw new Error("Participant not found");
 
-      // Get initial capital from config
       const config = await db.query.competitionConfig.findFirst();
-      const initialCapital = p.market === "A_SHARES"
+      const initialCapital = market === "A_SHARES"
         ? Number(config?.initialCapitalAshare ?? 1000000)
         : Number(config?.initialCapitalUs ?? 100000);
 
-      // Find previous month record for change calculation
       const prevRecords = await db
         .select()
         .from(capitalRecords)
         .where(
           and(
             eq(capitalRecords.participantId, participantId),
+            eq(capitalRecords.market, market),
             sql`${capitalRecords.month} < ${month}`
           )
         )
@@ -189,12 +186,12 @@ export const capitalRouter = createRouter({
       const change = capital - previousCapital;
       const changePercent = previousCapital > 0 ? (change / previousCapital) * 100 : 0;
 
-      // Upsert: delete existing then insert
       await db
         .delete(capitalRecords)
         .where(
           and(
             eq(capitalRecords.participantId, participantId),
+            eq(capitalRecords.market, market),
             eq(capitalRecords.month, month)
           )
         );
@@ -203,6 +200,7 @@ export const capitalRouter = createRouter({
         .insert(capitalRecords)
         .values({
           participantId,
+          market,
           month,
           capital: capital.toFixed(2),
           change: change.toFixed(2),
@@ -214,31 +212,30 @@ export const capitalRouter = createRouter({
       return result[0];
     }),
 
-  // Batch save capital records (admin only)
   batchSave: adminQuery
     .input(
       z.array(
         z.object({
           participantId: z.number(),
+          market: marketEnum,
           month: z.number().min(4).max(9),
           capital: z.number().positive(),
         })
       )
     )
     .mutation(async ({ input }) => {
+      const db = getDb();
+      const config = await db.query.competitionConfig.findFirst();
+
       const results = [];
       for (const item of input) {
         try {
-          const db = getDb();
-          const { capitalRecords, participants } = await import("@db/schema");
-
           const p = await db.query.participants.findFirst({
             where: eq(participants.id, item.participantId),
           });
           if (!p) continue;
 
-          const config = await db.query.competitionConfig.findFirst();
-          const initialCapital = p.market === "A_SHARES"
+          const initialCapital = item.market === "A_SHARES"
             ? Number(config?.initialCapitalAshare ?? 1000000)
             : Number(config?.initialCapitalUs ?? 100000);
 
@@ -248,6 +245,7 @@ export const capitalRouter = createRouter({
             .where(
               and(
                 eq(capitalRecords.participantId, item.participantId),
+                eq(capitalRecords.market, item.market),
                 sql`${capitalRecords.month} < ${item.month}`
               )
             )
@@ -266,6 +264,7 @@ export const capitalRouter = createRouter({
             .where(
               and(
                 eq(capitalRecords.participantId, item.participantId),
+                eq(capitalRecords.market, item.market),
                 eq(capitalRecords.month, item.month)
               )
             );
@@ -274,6 +273,7 @@ export const capitalRouter = createRouter({
             .insert(capitalRecords)
             .values({
               participantId: item.participantId,
+              market: item.market,
               month: item.month,
               capital: item.capital.toFixed(2),
               change: change.toFixed(2),
@@ -290,7 +290,6 @@ export const capitalRouter = createRouter({
       return results;
     }),
 
-  // Delete a capital record (admin only)
   delete: adminQuery
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {

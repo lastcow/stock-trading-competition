@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import type { HttpBindings } from "@hono/node-server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
+import { sql } from "drizzle-orm";
 import { appRouter } from "./router";
 import { createContext } from "./context";
 import { env } from "./lib/env";
@@ -24,13 +25,49 @@ app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 
 export default app;
 
-// Auto-seed database on startup
+// Idempotent migration: move `market` from participants -> capital_records.
+// Safe to run on a fresh DB (creates tables via initial schema first elsewhere)
+// or on a DB still on the old schema (backfills then drops).
+async function migrateMarketToRecords() {
+  const db = getDb();
+
+  const participantsHasMarket = await db.execute<{ exists: boolean }>(sql`
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'participants' AND column_name = 'market'
+    ) AS exists
+  `);
+
+  if (!participantsHasMarket.rows[0]?.exists) {
+    return;
+  }
+
+  console.log("Migrating market column from participants -> capital_records...");
+  await db.execute(sql`ALTER TABLE capital_records ADD COLUMN IF NOT EXISTS market varchar(20)`);
+  await db.execute(sql`
+    UPDATE capital_records
+    SET market = participants.market
+    FROM participants
+    WHERE capital_records.participant_id = participants.id
+      AND capital_records.market IS NULL
+  `);
+  await db.execute(sql`ALTER TABLE capital_records ALTER COLUMN market SET NOT NULL`);
+  await db.execute(sql`DROP INDEX IF EXISTS capital_record_unique`);
+  await db.execute(sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS capital_record_market_unique
+    ON capital_records (participant_id, market, month)
+  `);
+  await db.execute(sql`ALTER TABLE participants DROP COLUMN market`);
+  console.log("Migration completed.");
+}
+
 async function seedDatabase() {
   try {
     const db = getDb();
     console.log("Checking database state...");
 
-    // Create admin user if not exists
+    await migrateMarketToRecords();
+
     const existingAdmin = await db.query.adminUsers.findFirst({
       where: eq(adminUsers.email, "joy@zheng.me"),
     });
@@ -45,11 +82,10 @@ async function seedDatabase() {
       console.log("Admin user created: joy@zheng.me");
     }
 
-    // Create default config if not exists
     const existingConfig = await db.query.competitionConfig.findFirst();
     if (!existingConfig) {
       await db.insert(competitionConfig).values({
-        name: "\u5dc5\u5cf0\u676f\u6a21\u62df\u80a1\u7968\u4ea4\u6613\u5927\u8d5b",
+        name: "巅峰杯模拟股票交易大赛",
         startDate: "2026-04-01",
         endDate: "2026-09-30",
         initialCapitalAshare: "1000000",
@@ -58,24 +94,24 @@ async function seedDatabase() {
       console.log("Competition config created");
     }
 
-    // Seed demo participants if none exist
     const existingParticipants = await db.query.participants.findMany();
     if (existingParticipants.length === 0) {
+      // Each demo participant competes in BOTH A-shares and US stocks.
       const demoParticipants = [
-        { name: "\u5f20\u660a\u5929", type: "PERSONAL" as const, market: "A_SHARES" as const },
-        { name: "\u674e\u601d\u8fdc", type: "PERSONAL" as const, market: "A_SHARES" as const },
-        { name: "\u738b\u6893\u6db5", type: "PERSONAL" as const, market: "A_SHARES" as const },
-        { name: "\u9648\u4fca\u6770", type: "PERSONAL" as const, market: "A_SHARES" as const },
-        { name: "\u96c4\u9e70\u6218\u961f", type: "TEAM" as const, market: "A_SHARES" as const },
-        { name: "\u731b\u9f99\u7ec4\u5408", type: "TEAM" as const, market: "A_SHARES" as const },
-        { name: "\u730e\u8c79\u6295\u8d44", type: "TEAM" as const, market: "A_SHARES" as const },
-        { name: "Michael Chen", type: "PERSONAL" as const, market: "US_STOCKS" as const },
-        { name: "Sarah Liu", type: "PERSONAL" as const, market: "US_STOCKS" as const },
-        { name: "David Wang", type: "PERSONAL" as const, market: "US_STOCKS" as const },
-        { name: "Emily Zhang", type: "PERSONAL" as const, market: "US_STOCKS" as const },
-        { name: "Tiger Fund", type: "TEAM" as const, market: "US_STOCKS" as const },
-        { name: "Dragon Capital", type: "TEAM" as const, market: "US_STOCKS" as const },
-        { name: "Phoenix Group", type: "TEAM" as const, market: "US_STOCKS" as const },
+        { name: "张昊天", type: "PERSONAL" as const },
+        { name: "李思远", type: "PERSONAL" as const },
+        { name: "王梓涵", type: "PERSONAL" as const },
+        { name: "陈俊杰", type: "PERSONAL" as const },
+        { name: "Michael Chen", type: "PERSONAL" as const },
+        { name: "Sarah Liu", type: "PERSONAL" as const },
+        { name: "David Wang", type: "PERSONAL" as const },
+        { name: "Emily Zhang", type: "PERSONAL" as const },
+        { name: "雄鹰战队", type: "TEAM" as const },
+        { name: "猛龙组合", type: "TEAM" as const },
+        { name: "猎豹投资", type: "TEAM" as const },
+        { name: "Tiger Fund", type: "TEAM" as const },
+        { name: "Dragon Capital", type: "TEAM" as const },
+        { name: "Phoenix Group", type: "TEAM" as const },
       ];
 
       for (const p of demoParticipants) {
@@ -83,27 +119,30 @@ async function seedDatabase() {
       }
       console.log(`${demoParticipants.length} demo participants created`);
 
-      // Create demo capital records
       const seededParticipants = await db.query.participants.findMany();
+      const markets = ["A_SHARES", "US_STOCKS"] as const;
       for (const p of seededParticipants) {
-        const initialCapital = p.market === "A_SHARES" ? 1000000 : 100000;
-        let currentCapital = initialCapital;
-        for (const month of [4, 5, 6, 7, 8, 9]) {
-          const changePercent = (Math.random() - 0.4) * 20;
-          const change = currentCapital * (changePercent / 100);
-          currentCapital += change;
+        for (const market of markets) {
+          const initialCapital = market === "A_SHARES" ? 1000000 : 100000;
+          let currentCapital = initialCapital;
+          for (const month of [4, 5, 6, 7, 8, 9]) {
+            const changePercent = (Math.random() - 0.4) * 20;
+            const change = currentCapital * (changePercent / 100);
+            currentCapital += change;
 
-          await db.insert(capitalRecords).values({
-            participantId: p.id,
-            month,
-            capital: currentCapital.toFixed(2),
-            change: change.toFixed(2),
-            changePercent: changePercent.toFixed(4),
-            inputBy: "admin",
-          });
+            await db.insert(capitalRecords).values({
+              participantId: p.id,
+              market,
+              month,
+              capital: currentCapital.toFixed(2),
+              change: change.toFixed(2),
+              changePercent: changePercent.toFixed(4),
+              inputBy: "admin",
+            });
+          }
         }
       }
-      console.log("Demo capital records created");
+      console.log("Demo capital records created (both markets)");
     }
 
     console.log("Database seeding completed");
@@ -117,7 +156,6 @@ if (env.isProduction) {
   const { serveStaticFiles } = await import("./lib/vite");
   serveStaticFiles(app);
 
-  // Seed database before starting server
   await seedDatabase();
 
   const port = parseInt(process.env.PORT || "3000");

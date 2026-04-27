@@ -21,7 +21,9 @@ export default function AdminEntry() {
     return m >= 4 && m <= 9 ? m : 4;
   }, []);
   const [month, setMonth] = useState<number>(initialMonth);
-  const [inputs, setInputs] = useState<Record<number, string>>({});
+  // Inputs keyed by `${groupIdx}:${participantId}` so the same participant
+  // can have separate values per market section.
+  const [inputs, setInputs] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const { data: config } = trpc.competition.get.useQuery();
@@ -65,9 +67,17 @@ export default function AdminEntry() {
 
   const handleSaveAll = useCallback(() => {
     const entries = Object.entries(inputs)
-      .map(([pid, val]) => ({ participantId: Number(pid), capital: Number(val) }))
-      .filter((e) => !isNaN(e.capital) && e.capital > 0)
-      .map((e) => ({ ...e, month }));
+      .map(([key, val]) => {
+        const [groupIdx, pid] = key.split(":");
+        const combo = MARKET_CATEGORY_COMBINATIONS[Number(groupIdx)];
+        return {
+          participantId: Number(pid),
+          market: combo.market,
+          month,
+          capital: Number(val),
+        };
+      })
+      .filter((e) => !isNaN(e.capital) && e.capital > 0);
 
     if (entries.length === 0) {
       setStatus({ type: "error", text: "请至少输入一项资金数额" });
@@ -220,12 +230,13 @@ export default function AdminEntry() {
                   </thead>
                   <tbody>
                     {rankings.map((r) => {
+                      const inputKey = `${idx}:${r.participantId}`;
                       const existingRecord = r.monthRecords.find((mr) => mr.month === month);
                       const prevRecord = r.monthRecords
                         .filter((mr) => mr.month < month)
                         .sort((a, b) => b.month - a.month)[0];
                       const prevCapital = prevRecord?.capital ?? initialCapital;
-                      const typed = inputs[r.participantId] ?? "";
+                      const typed = inputs[inputKey] ?? "";
                       const typedNum = Number(typed);
                       const validTyped = typed !== "" && !isNaN(typedNum) && typedNum > 0;
                       const displayedNew = validTyped
@@ -252,7 +263,7 @@ export default function AdminEntry() {
                               placeholder={existingRecord ? String(existingRecord.capital) : "输入金额"}
                               value={typed}
                               onChange={(e) =>
-                                setInputs((prev) => ({ ...prev, [r.participantId]: e.target.value }))
+                                setInputs((prev) => ({ ...prev, [inputKey]: e.target.value }))
                               }
                               className="w-36 rounded-lg border px-3 py-1.5 text-right text-sm outline-none focus:border-[#4F46E5] focus:ring-2"
                               style={{ borderColor: "#E2E8F0" }}

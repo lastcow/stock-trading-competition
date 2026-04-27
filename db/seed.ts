@@ -6,7 +6,6 @@ import { hashSync } from "bcryptjs";
 async function seed() {
   const db = getDb();
 
-  // Check if admin exists
   const existingAdmin = await db.query.adminUsers.findFirst({
     where: eq(adminUsers.email, "joy@zheng.me"),
   });
@@ -20,7 +19,6 @@ async function seed() {
     console.log("Admin user created: joy@zheng.me");
   }
 
-  // Check if config exists
   const existingConfig = await db.query.competitionConfig.findFirst();
 
   if (!existingConfig) {
@@ -34,29 +32,24 @@ async function seed() {
     console.log("Competition config created");
   }
 
-  // Seed demo participants if none exist
   const existingParticipants = await db.query.participants.findMany();
 
   if (existingParticipants.length === 0) {
     const demoParticipants = [
-      // A-Share Personal
-      { name: "张昊天", type: "PERSONAL", market: "A_SHARES" },
-      { name: "李思远", type: "PERSONAL", market: "A_SHARES" },
-      { name: "王梓涵", type: "PERSONAL", market: "A_SHARES" },
-      { name: "陈俊杰", type: "PERSONAL", market: "A_SHARES" },
-      // A-Share Team
-      { name: "雄鹰战队", type: "TEAM", market: "A_SHARES" },
-      { name: "猛龙组合", type: "TEAM", market: "A_SHARES" },
-      { name: "猎豹投资", type: "TEAM", market: "A_SHARES" },
-      // US Stock Personal
-      { name: "Michael Chen", type: "PERSONAL", market: "US_STOCKS" },
-      { name: "Sarah Liu", type: "PERSONAL", market: "US_STOCKS" },
-      { name: "David Wang", type: "PERSONAL", market: "US_STOCKS" },
-      { name: "Emily Zhang", type: "PERSONAL", market: "US_STOCKS" },
-      // US Stock Team
-      { name: "Tiger Fund", type: "TEAM", market: "US_STOCKS" },
-      { name: "Dragon Capital", type: "TEAM", market: "US_STOCKS" },
-      { name: "Phoenix Group", type: "TEAM", market: "US_STOCKS" },
+      { name: "张昊天", type: "PERSONAL" },
+      { name: "李思远", type: "PERSONAL" },
+      { name: "王梓涵", type: "PERSONAL" },
+      { name: "陈俊杰", type: "PERSONAL" },
+      { name: "Michael Chen", type: "PERSONAL" },
+      { name: "Sarah Liu", type: "PERSONAL" },
+      { name: "David Wang", type: "PERSONAL" },
+      { name: "Emily Zhang", type: "PERSONAL" },
+      { name: "雄鹰战队", type: "TEAM" },
+      { name: "猛龙组合", type: "TEAM" },
+      { name: "猎豹投资", type: "TEAM" },
+      { name: "Tiger Fund", type: "TEAM" },
+      { name: "Dragon Capital", type: "TEAM" },
+      { name: "Phoenix Group", type: "TEAM" },
     ];
 
     for (const p of demoParticipants) {
@@ -64,25 +57,28 @@ async function seed() {
     }
     console.log(`${demoParticipants.length} demo participants created`);
 
-    // Seed demo capital records
     const seededParticipants = await db.query.participants.findMany();
+    const markets = ["A_SHARES", "US_STOCKS"] as const;
     const records = [];
     for (const p of seededParticipants) {
-      const initialCapital = p.market === "A_SHARES" ? 1000000 : 100000;
-      let currentCapital = initialCapital;
-      for (const month of [4, 5, 6, 7, 8, 9]) {
-        const changePercent = (Math.random() - 0.4) * 20; // -8% to +12%
-        const change = currentCapital * (changePercent / 100);
-        currentCapital += change;
+      for (const market of markets) {
+        const initialCapital = market === "A_SHARES" ? 1000000 : 100000;
+        let currentCapital = initialCapital;
+        for (const month of [4, 5, 6, 7, 8, 9]) {
+          const changePercent = (Math.random() - 0.4) * 20;
+          const change = currentCapital * (changePercent / 100);
+          currentCapital += change;
 
-        records.push({
-          participantId: p.id,
-          month,
-          capital: currentCapital.toFixed(2),
-          change: change.toFixed(2),
-          changePercent: changePercent.toFixed(4),
-          inputBy: "admin",
-        });
+          records.push({
+            participantId: p.id,
+            market,
+            month,
+            capital: currentCapital.toFixed(2),
+            change: change.toFixed(2),
+            changePercent: changePercent.toFixed(4),
+            inputBy: "admin",
+          });
+        }
       }
     }
 

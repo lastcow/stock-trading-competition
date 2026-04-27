@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { trpc } from "@/providers/trpc";
-import type { RankingItem, Market, Category } from "@/types";
+import type { RankingItem, Category } from "@/types";
 import {
   MONTH_LABELS, MARKET_LABELS, CATEGORY_LABELS,
   MARKET_CATEGORY_COMBINATIONS, MONTHS,
@@ -40,7 +40,7 @@ export default function Dashboard() {
   // tRPC queries
   const { data: competition } = trpc.competition.get.useQuery();
   const { data: participants } = trpc.participant.list.useQuery(
-    { market: activeMarket, type: activeCategory },
+    { type: activeCategory },
     { enabled: !!activeMarket }
   );
   const { data: rankings, isLoading: rankingsLoading } = trpc.capital.rankings.useQuery(
@@ -86,6 +86,7 @@ export default function Dashboard() {
     const month = activeMonth === "overall" ? 9 : (activeMonth as number);
     saveRecord.mutate({
       participantId,
+      market: activeMarket,
       month,
       capital: Number(capitalStr),
     }, {
@@ -93,19 +94,17 @@ export default function Dashboard() {
         setFormValues((prev) => ({ ...prev, [participantId]: "" }));
       },
     });
-  }, [formValues, activeMonth, saveRecord]);
+  }, [formValues, activeMonth, activeMarket, saveRecord]);
 
   // New participant form
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState<Category>("PERSONAL");
-  const [newMarket, setNewMarket] = useState<Market>(activeMarket);
 
   const handleAddParticipant = () => {
     if (!newName.trim()) return;
     createParticipant.mutate({
       name: newName.trim(),
       type: newType,
-      market: newMarket,
     }, {
       onSuccess: () => {
         setNewName("");
@@ -267,17 +266,14 @@ export default function Dashboard() {
                   <option value="PERSONAL">个人</option>
                   <option value="TEAM">团队</option>
                 </select>
-                <select value={newMarket} onChange={(e) => setNewMarket(e.target.value as Market)}
-                  className="rounded-lg border px-3 py-2 text-sm outline-none"
-                  style={{ borderColor: "#E2E8F0" }}>
-                  <option value="A_SHARES">A股</option>
-                  <option value="US_STOCKS">美股</option>
-                </select>
                 <button onClick={handleAddParticipant} disabled={createParticipant.isPending || !newName.trim()}
                   className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50" style={{ background: "#4F46E5" }}>
                   {createParticipant.isPending ? "添加中..." : "添加"}
                 </button>
               </div>
+              <p className="mt-2 text-xs" style={{ color: "#94A3B8" }}>
+                新参赛者将同时参与 A股 与 美股 两个市场
+              </p>
             </div>
           </div>
         </motion.section>

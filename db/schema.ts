@@ -14,7 +14,6 @@ export const participants = pgTable("participants", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   type: varchar("type", { length: 20 }).notNull(), // 'PERSONAL' | 'TEAM'
-  market: varchar("market", { length: 20 }).notNull(), // 'A_SHARES' | 'US_STOCKS'
   avatar: text("avatar"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -26,6 +25,7 @@ export type InsertParticipant = typeof participants.$inferInsert;
 export const capitalRecords = pgTable("capital_records", {
   id: serial("id").primaryKey(),
   participantId: integer("participant_id").notNull(),
+  market: varchar("market", { length: 20 }).notNull(), // 'A_SHARES' | 'US_STOCKS'
   month: integer("month").notNull(), // 4-9 (April to September)
   capital: numeric("capital", { precision: 18, scale: 2 }).notNull(),
   change: numeric("change", { precision: 18, scale: 2 }).notNull(),
@@ -33,7 +33,7 @@ export const capitalRecords = pgTable("capital_records", {
   inputBy: varchar("input_by", { length: 255 }).notNull(),
   inputAt: timestamp("input_at").defaultNow().notNull(),
 }, (table) => [
-  uniqueIndex("capital_record_unique").on(table.participantId, table.month),
+  uniqueIndex("capital_record_market_unique").on(table.participantId, table.market, table.month),
 ]);
 
 export type CapitalRecord = typeof capitalRecords.$inferSelect;

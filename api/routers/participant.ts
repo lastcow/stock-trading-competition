@@ -2,25 +2,20 @@ import { z } from "zod";
 import { createRouter, publicQuery, adminQuery } from "../middleware";
 import { getDb } from "../queries/connection";
 import { participants } from "@db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 export const participantRouter = createRouter({
   list: publicQuery
     .input(
       z.object({
-        market: z.enum(["A_SHARES", "US_STOCKS"]).optional(),
         type: z.enum(["PERSONAL", "TEAM"]).optional(),
       }).optional()
     )
     .query(async ({ input }) => {
       const db = getDb();
-      const conditions = [];
-      if (input?.market) conditions.push(eq(participants.market, input.market));
-      if (input?.type) conditions.push(eq(participants.type, input.type));
-
-      if (conditions.length > 0) {
+      if (input?.type) {
         return db.query.participants.findMany({
-          where: and(...conditions),
+          where: eq(participants.type, input.type),
         });
       }
       return db.query.participants.findMany();
@@ -40,7 +35,6 @@ export const participantRouter = createRouter({
       z.object({
         name: z.string().min(1).max(255),
         type: z.enum(["PERSONAL", "TEAM"]),
-        market: z.enum(["A_SHARES", "US_STOCKS"]),
         avatar: z.string().optional(),
       })
     )
@@ -56,7 +50,6 @@ export const participantRouter = createRouter({
         id: z.number(),
         name: z.string().min(1).max(255).optional(),
         type: z.enum(["PERSONAL", "TEAM"]).optional(),
-        market: z.enum(["A_SHARES", "US_STOCKS"]).optional(),
         avatar: z.string().optional(),
       })
     )
@@ -75,10 +68,8 @@ export const participantRouter = createRouter({
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       const db = getDb();
-      // Delete capital records first
       const { capitalRecords } = await import("@db/schema");
       await db.delete(capitalRecords).where(eq(capitalRecords.participantId, input.id));
-      // Then delete participant
       await db.delete(participants).where(eq(participants.id, input.id));
       return { success: true };
     }),

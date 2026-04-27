@@ -5,7 +5,6 @@ export interface Participant {
   id: number;
   name: string;
   type: Category;
-  market: Market;
   avatar?: string;
   createdAt: Date;
 }
@@ -13,6 +12,7 @@ export interface Participant {
 export interface CapitalRecord {
   id: number;
   participantId: number;
+  market: Market;
   month: number;
   capital: string;
   change: string;
