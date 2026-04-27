@@ -65,7 +65,7 @@ export const capitalRouter = createRouter({
       const config = await db.query.competitionConfig.findFirst();
       const initialCapital = input.market === "A_SHARES"
         ? Number(config?.initialCapitalAshare ?? 1000000)
-        : Number(config?.initialCapitalUs ?? 100000);
+        : Number(config?.initialCapitalUs ?? 1000000);
 
       const targetMonth = input.month === "overall" ? 9 : input.month;
 
@@ -164,7 +164,7 @@ export const capitalRouter = createRouter({
       const config = await db.query.competitionConfig.findFirst();
       const initialCapital = market === "A_SHARES"
         ? Number(config?.initialCapitalAshare ?? 1000000)
-        : Number(config?.initialCapitalUs ?? 100000);
+        : Number(config?.initialCapitalUs ?? 1000000);
 
       const prevRecords = await db
         .select()
@@ -235,9 +235,11 @@ export const capitalRouter = createRouter({
           });
           if (!p) continue;
 
-          const initialCapital = item.market === "A_SHARES"
-            ? Number(config?.initialCapitalAshare ?? 1000000)
-            : Number(config?.initialCapitalUs ?? 100000);
+          const initialCapital = Number(
+            item.market === "A_SHARES"
+              ? config?.initialCapitalAshare ?? 1000000
+              : config?.initialCapitalUs ?? 1000000
+          );
 
           const prevRecords = await db
             .select()

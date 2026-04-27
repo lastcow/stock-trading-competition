@@ -96,9 +96,16 @@ async function seedDatabase() {
         startDate: "2026-04-01",
         endDate: "2026-09-30",
         initialCapitalAshare: "1000000",
-        initialCapitalUs: "100000",
+        initialCapitalUs: "1000000",
       });
       console.log("Competition config created");
+    } else if (Number(existingConfig.initialCapitalUs) === 100000) {
+      // One-shot bump: USD initial fund changed from $100k to $1M.
+      await db
+        .update(competitionConfig)
+        .set({ initialCapitalUs: "1000000" })
+        .where(eq(competitionConfig.id, existingConfig.id));
+      console.log("Competition config: bumped initialCapitalUs 100000 -> 1000000");
     }
 
     const existingParticipants = await db.query.participants.findMany();
@@ -130,7 +137,7 @@ async function seedDatabase() {
       const markets = ["A_SHARES", "US_STOCKS"] as const;
       for (const p of seededParticipants) {
         for (const market of markets) {
-          const initialCapital = market === "A_SHARES" ? 1000000 : 100000;
+          const initialCapital = 1000000;
           let currentCapital = initialCapital;
           for (const month of [4, 5, 6, 7, 8, 9]) {
             const changePercent = (Math.random() - 0.4) * 20;

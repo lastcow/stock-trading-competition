@@ -27,7 +27,7 @@ async function seed() {
       startDate: "2026-04-01",
       endDate: "2026-09-30",
       initialCapitalAshare: "1000000",
-      initialCapitalUs: "100000",
+      initialCapitalUs: "1000000",
     });
     console.log("Competition config created");
   }
@@ -62,7 +62,7 @@ async function seed() {
     const records = [];
     for (const p of seededParticipants) {
       for (const market of markets) {
-        const initialCapital = market === "A_SHARES" ? 1000000 : 100000;
+        const initialCapital = 1000000;
         let currentCapital = initialCapital;
         for (const month of [4, 5, 6, 7, 8, 9]) {
           const changePercent = (Math.random() - 0.4) * 20;

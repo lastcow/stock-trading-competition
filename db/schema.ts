@@ -46,7 +46,7 @@ export const competitionConfig = pgTable("competition_config", {
   startDate: varchar("start_date", { length: 20 }).notNull(),
   endDate: varchar("end_date", { length: 20 }).notNull(),
   initialCapitalAshare: numeric("initial_capital_ashare", { precision: 18, scale: 2 }).notNull().default("1000000"),
-  initialCapitalUs: numeric("initial_capital_us", { precision: 18, scale: 2 }).notNull().default("100000"),
+  initialCapitalUs: numeric("initial_capital_us", { precision: 18, scale: 2 }).notNull().default("1000000"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

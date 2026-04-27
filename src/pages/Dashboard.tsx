@@ -69,7 +69,7 @@ export default function Dashboard() {
 
   const initialCapital = activeMarket === "A_SHARES"
     ? Number(competition?.initialCapitalAshare ?? 1000000)
-    : Number(competition?.initialCapitalUs ?? 100000);
+    : Number(competition?.initialCapitalUs ?? 1000000);
 
   const formatCurrency = useCallback((value: number) => {
     if (activeMarket === "A_SHARES") return `¥${value.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -204,7 +204,7 @@ export default function Dashboard() {
             { icon: <User size={20} color="#4F46E5" />, label: "参赛个人", value: `${personalCount}人` },
             { icon: <Users size={20} color="#4F46E5" />, label: "参赛团队", value: `${teamCount}队` },
             { icon: <Calendar size={20} color="#4F46E5" />, label: "比赛周期", value: "6个月" },
-            { icon: <Wallet size={20} color="#4F46E5" />, label: "起始资金", value: "¥100万 / $10万" },
+            { icon: <Wallet size={20} color="#4F46E5" />, label: "起始资金", value: "¥100万 / $100万" },
           ].map((stat, idx) => (
             <motion.div key={stat.label} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.25 + idx * 0.08 }}

@@ -99,7 +99,7 @@ export default function AdminEntry() {
   const getInitialCapital = (market: Market) =>
     market === "A_SHARES"
       ? Number(config?.initialCapitalAshare ?? 1000000)
-      : Number(config?.initialCapitalUs ?? 100000);
+      : Number(config?.initialCapitalUs ?? 1000000);
 
   const fmtCurrency = (value: number, market: Market) => {
     const symbol = market === "A_SHARES" ? "¥" : "$";
