@@ -68,6 +68,13 @@ async function seedDatabase() {
 
     await migrateMarketToRecords();
 
+    if (process.env.RESET_DB === "true") {
+      console.log("⚠️  RESET_DB=true: wiping capital_records and participants before reseeding...");
+      await db.delete(capitalRecords);
+      await db.delete(participants);
+      console.log("Wiped. Remove RESET_DB env after this boot to avoid wiping again.");
+    }
+
     const existingAdmin = await db.query.adminUsers.findFirst({
       where: eq(adminUsers.email, "joy@zheng.me"),
     });
