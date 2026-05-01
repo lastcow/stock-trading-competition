@@ -3,11 +3,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   User, Users, Trophy, TrendingUp, BarChart3, Globe,
   Calendar, Wallet, ChevronDown, Crown, Award, Star,
-  Settings, UserCog,
 } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { trpc } from "@/providers/trpc";
-import type { RankingItem, Category } from "@/types";
+import type { RankingItem } from "@/types";
 import {
   MONTH_LABELS, MARKET_LABELS, CATEGORY_LABELS,
   MARKET_CATEGORY_COMBINATIONS, MONTHS,
@@ -69,10 +68,6 @@ export default function Dashboard() {
     },
   });
 
-  const createParticipant = trpc.participant.create.useMutation({
-    onSuccess: () => utils.participant.list.invalidate(),
-  });
-
   const initialCapital = activeMarket === "A_SHARES"
     ? Number(competition?.initialCapitalAshare ?? 1000000)
     : Number(competition?.initialCapitalUs ?? 1000000);
@@ -101,22 +96,6 @@ export default function Dashboard() {
       },
     });
   }, [formValues, activeMonth, activeMarket, saveRecord]);
-
-  // New participant form
-  const [newName, setNewName] = useState("");
-  const [newType, setNewType] = useState<Category>("PERSONAL");
-
-  const handleAddParticipant = () => {
-    if (!newName.trim()) return;
-    createParticipant.mutate({
-      name: newName.trim(),
-      type: newType,
-    }, {
-      onSuccess: () => {
-        setNewName("");
-      },
-    });
-  };
 
   // Table columns
   const tableColumns: Column<RankingItem>[] = useMemo(() => [
@@ -245,45 +224,6 @@ export default function Dashboard() {
             icon={<Globe size={32} color="#6366F1" />} />
         </motion.div>
       </section>
-
-      {/* Admin Panel */}
-      {isAdmin && (
-        <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.3 }}
-          className="overflow-hidden rounded-2xl border"
-          style={{ background: "rgba(255, 255, 255, 0.85)", backdropFilter: "blur(12px)", borderColor: "rgba(226, 232, 240, 0.8)" }}>
-          <div className="border-b px-6 py-4" style={{ borderColor: "#E2E8F0" }}>
-            <h2 className="flex items-center gap-2 text-lg font-semibold" style={{ color: "#0F172A" }}>
-              <Settings size={20} color="#4F46E5" /> 管理员工具
-            </h2>
-          </div>
-          <div className="p-6 space-y-6">
-            {/* Add Participant */}
-            <div>
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold" style={{ color: "#334155" }}>
-                <UserCog size={16} color="#4F46E5" /> 添加参赛者
-              </h3>
-              <div className="flex flex-wrap gap-3">
-                <input type="text" placeholder="姓名/团队名" value={newName} onChange={(e) => setNewName(e.target.value)}
-                  className="flex-1 min-w-[200px] rounded-lg border px-3 py-2 text-sm outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#EEF2FF]"
-                  style={{ borderColor: "#E2E8F0" }} />
-                <select value={newType} onChange={(e) => setNewType(e.target.value as Category)}
-                  className="rounded-lg border px-3 py-2 text-sm outline-none"
-                  style={{ borderColor: "#E2E8F0" }}>
-                  <option value="PERSONAL">个人</option>
-                  <option value="TEAM">团队</option>
-                </select>
-                <button onClick={handleAddParticipant} disabled={createParticipant.isPending || !newName.trim()}
-                  className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50" style={{ background: "#4F46E5" }}>
-                  {createParticipant.isPending ? "添加中..." : "添加"}
-                </button>
-              </div>
-              <p className="mt-2 text-xs" style={{ color: "#94A3B8" }}>
-                新参赛者将同时参与 A股 与 美股 两个市场
-              </p>
-            </div>
-          </div>
-        </motion.section>
-      )}
 
       {/* Main Tabs */}
       <section className="overflow-hidden rounded-2xl border"
