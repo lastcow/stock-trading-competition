@@ -54,12 +54,12 @@ export default function Dashboard() {
     { market: leaderboardCombo.market, type: leaderboardCombo.category, month: "overall" },
     { enabled: true }
   );
-  const leaderboardRankings = useMemo(
-    () => (leaderboardRankingsRaw ?? [])
+  const leaderboardRankings = useMemo(() => {
+    const filtered = (leaderboardRankingsRaw ?? [])
       .filter((r) => r.code)
-      .map((r, i) => ({ ...r, rank: i + 1 })),
-    [leaderboardRankingsRaw]
-  );
+      .map((r, i) => ({ ...r, rank: i + 1 }));
+    return leaderboardCombo.category === "PERSONAL" ? filtered.slice(0, 3) : filtered;
+  }, [leaderboardRankingsRaw, leaderboardCombo.category]);
 
   // Mutations
   const saveRecord = trpc.capital.save.useMutation({
@@ -175,13 +175,13 @@ export default function Dashboard() {
 
   // KPI data — only participants who have a code for the active market are
   // surfaced publicly; ranks are renumbered after filtering so positions
-  // remain 1, 2, 3, ... without gaps.
-  const safeRankings = useMemo(
-    () => (rankings ?? [])
+  // remain 1, 2, 3, ... without gaps. Personal category is capped to top 3.
+  const safeRankings = useMemo(() => {
+    const filtered = (rankings ?? [])
       .filter((r) => r.code)
-      .map((r, i) => ({ ...r, rank: i + 1 })),
-    [rankings]
-  );
+      .map((r, i) => ({ ...r, rank: i + 1 }));
+    return activeCategory === "PERSONAL" ? filtered.slice(0, 3) : filtered;
+  }, [rankings, activeCategory]);
   const topPerformer = safeRankings[0];
   const bestMonthlyReturn = safeRankings.length > 0
     ? Math.max(...safeRankings.map((r) => r.monthRecords.length > 0 ? Math.max(...r.monthRecords.map((m) => m.changePercent)) : 0))
