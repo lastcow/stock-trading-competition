@@ -177,7 +177,8 @@ export default function Dashboard() {
   const avgReturn = safeRankings.length > 0
     ? safeRankings.reduce((sum, r) => sum + r.totalReturn, 0) / safeRankings.length
     : 0;
-  const personalCount = allParticipants?.filter((p) => p.type === "PERSONAL").length ?? 0;
+  const personalAshareCount = allParticipants?.filter((p) => p.type === "PERSONAL" && p.aSharesCode).length ?? 0;
+  const personalUsCount = allParticipants?.filter((p) => p.type === "PERSONAL" && p.usStocksCode).length ?? 0;
   const teamCount = allParticipants?.filter((p) => p.type === "TEAM").length ?? 0;
 
   return (
@@ -205,7 +206,8 @@ export default function Dashboard() {
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}
           className="relative z-10 mt-6 flex flex-wrap gap-4">
           {[
-            { icon: <User size={20} color="#4F46E5" />, label: "参赛个人", value: `${personalCount}人` },
+            { icon: <User size={20} color="#4F46E5" />, label: "个人 · A股", value: `${personalAshareCount}人` },
+            { icon: <User size={20} color="#4F46E5" />, label: "个人 · 美股", value: `${personalUsCount}人` },
             { icon: <Users size={20} color="#4F46E5" />, label: "参赛团队", value: `${teamCount}队` },
             { icon: <Calendar size={20} color="#4F46E5" />, label: "比赛周期", value: "6个月" },
             { icon: <Wallet size={20} color="#4F46E5" />, label: "起始资金", value: "¥100万 / $100万" },
