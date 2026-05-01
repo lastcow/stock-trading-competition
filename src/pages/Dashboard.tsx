@@ -238,7 +238,7 @@ export default function Dashboard() {
       {/* KPI Cards */}
       <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}>
-          <StatCard label="当前冠军" value={topPerformer?.participantName || "-"}
+          <StatCard label="当前冠军" value={topPerformer ? (topPerformer.code ?? `#${topPerformer.participantId}`) : "-"}
             subtext={topPerformer ? `+${topPerformer.totalReturn.toFixed(2)}% 总收益` : undefined}
             icon={<Trophy size={32} color="#D97706" />} />
         </motion.div>
