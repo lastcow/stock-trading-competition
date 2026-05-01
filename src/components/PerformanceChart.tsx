@@ -11,7 +11,7 @@ interface PerformanceChartProps {
   initialCapital: number;
 }
 
-const labelFor = (item: RankingItem) => item.participantName;
+const labelFor = (item: RankingItem) => item.code ?? `#${item.participantId}`;
 
 export default function PerformanceChart({ data, initialCapital }: PerformanceChartProps) {
   const chartData = useMemo(() => {

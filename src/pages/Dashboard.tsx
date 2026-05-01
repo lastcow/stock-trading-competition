@@ -122,14 +122,17 @@ export default function Dashboard() {
   const tableColumns: Column<RankingItem>[] = useMemo(() => [
     {
       key: "name", title: "参赛用户名", align: "left",
-      render: (item) => (
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: "#4F46E5" }}>
-            {item.participantName.charAt(0)}
+      render: (item) => {
+        const display = item.code ?? `#${item.participantId}`;
+        return (
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: "#4F46E5" }}>
+              {display.charAt(0)}
+            </div>
+            <span className="font-medium">{display}</span>
           </div>
-          <span className="font-medium">{item.participantName}</span>
-        </div>
-      ),
+        );
+      },
     },
     {
       key: "current", title: activeMonth === "overall" ? "最终资金" : `${MONTH_LABELS[activeMonth as number]}资金`, align: "right",
@@ -486,7 +489,7 @@ export default function Dashboard() {
               style={{ height: "160px", background: "linear-gradient(180deg, #F8FAFC 0%, #E2E8F0 100%)" }}>
               <Award size={28} color="#94A3B8" />
               <span className="mt-1 text-sm font-bold" style={{ color: "#64748B" }}>亚军</span>
-              <span className="mt-1 text-sm font-bold" style={{ color: "#0F172A" }}>{leaderboardRankings[1].participantName}</span>
+              <span className="mt-1 text-sm font-bold" style={{ color: "#0F172A" }}>{leaderboardRankings[1].code ?? `#${leaderboardRankings[1].participantId}`}</span>
               <span className="mt-1 text-lg font-bold" style={{ color: leaderboardRankings[1].totalReturn >= 0 ? "#059669" : "#DC2626" }}>
                 {leaderboardRankings[1].totalReturn >= 0 ? "+" : ""}{leaderboardRankings[1].totalReturn.toFixed(2)}%
               </span>
@@ -500,7 +503,7 @@ export default function Dashboard() {
               style={{ height: "200px", background: "linear-gradient(180deg, #FFFBEB 0%, #FEF3C7 100%)" }}>
               <Crown size={32} color="#F59E0B" />
               <span className="mt-1 text-sm font-bold" style={{ color: "#D97706" }}>冠军</span>
-              <span className="mt-1 text-base font-bold" style={{ color: "#0F172A" }}>{leaderboardRankings[0].participantName}</span>
+              <span className="mt-1 text-base font-bold" style={{ color: "#0F172A" }}>{leaderboardRankings[0].code ?? `#${leaderboardRankings[0].participantId}`}</span>
               <span className="mt-1 text-xl font-bold" style={{ color: leaderboardRankings[0].totalReturn >= 0 ? "#059669" : "#DC2626" }}>
                 {leaderboardRankings[0].totalReturn >= 0 ? "+" : ""}{leaderboardRankings[0].totalReturn.toFixed(2)}%
               </span>
@@ -514,7 +517,7 @@ export default function Dashboard() {
               style={{ height: "140px", background: "linear-gradient(180deg, #FFF7ED 0%, #FED7AA 100%)" }}>
               <Award size={28} color="#D97706" />
               <span className="mt-1 text-sm font-bold" style={{ color: "#C2410C" }}>季军</span>
-              <span className="mt-1 text-sm font-bold" style={{ color: "#0F172A" }}>{leaderboardRankings[2].participantName}</span>
+              <span className="mt-1 text-sm font-bold" style={{ color: "#0F172A" }}>{leaderboardRankings[2].code ?? `#${leaderboardRankings[2].participantId}`}</span>
               <span className="mt-1 text-base font-bold" style={{ color: leaderboardRankings[2].totalReturn >= 0 ? "#059669" : "#DC2626" }}>
                 {leaderboardRankings[2].totalReturn >= 0 ? "+" : ""}{leaderboardRankings[2].totalReturn.toFixed(2)}%
               </span>
@@ -529,12 +532,15 @@ export default function Dashboard() {
         {leaderboardRankings && (
           <DataTable
             columns={[
-              { key: "name", title: "参赛用户名", align: "left", render: (item: RankingItem) => (
-                <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: "#4F46E5" }}>{item.participantName.charAt(0)}</div>
-                  <span className="font-medium">{item.participantName}</span>
-                </div>
-              )},
+              { key: "name", title: "参赛用户名", align: "left", render: (item: RankingItem) => {
+                const display = item.code ?? `#${item.participantId}`;
+                return (
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: "#4F46E5" }}>{display.charAt(0)}</div>
+                    <span className="font-medium">{display}</span>
+                  </div>
+                );
+              }},
               { key: "return", title: "总收益率", align: "right", render: (item: RankingItem) => (
                 <span className="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-bold" style={{ background: item.totalReturn >= 0 ? "#ECFDF5" : "#FEF2F2", color: item.totalReturn >= 0 ? "#059669" : "#DC2626" }}>
                   {item.totalReturn >= 0 ? "+" : ""}{item.totalReturn.toFixed(2)}%

@@ -13,7 +13,7 @@ export default function RankingChart({ data }: RankingChartProps) {
     return [...data]
       .sort((a, b) => a.rank - b.rank)
       .map((item) => ({
-        name: item.participantName,
+        name: item.code ?? `#${item.participantId}`,
         return: Number(item.totalReturn.toFixed(2)),
         change: Number(item.changePercent.toFixed(2)),
       }));
