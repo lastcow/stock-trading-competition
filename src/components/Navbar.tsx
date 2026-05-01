@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { trpc } from "@/providers/trpc";
-import { LogIn, LogOut, ShieldCheck, ClipboardEdit } from "lucide-react";
+import { LogIn, LogOut, ShieldCheck, ClipboardEdit, Users } from "lucide-react";
 
 export default function Navbar() {
   const { isAdmin, user, login, logout } = useAuthContext();
@@ -44,6 +44,14 @@ export default function Navbar() {
         <div className="flex items-center gap-3">
           {isAdmin ? (
             <div className="flex items-center gap-3">
+              <Link
+                to="/admin/participants"
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all hover:bg-indigo-50"
+                style={{ color: "#4F46E5" }}
+              >
+                <Users size={16} />
+                参赛者
+              </Link>
               <Link
                 to="/admin/entry"
                 className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all hover:bg-indigo-50"
