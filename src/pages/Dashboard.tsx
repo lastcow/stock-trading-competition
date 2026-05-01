@@ -50,9 +50,15 @@ export default function Dashboard() {
   const { data: allParticipants } = trpc.participant.list.useQuery();
 
   const leaderboardCombo = MARKET_CATEGORY_COMBINATIONS[leaderboardMarketIdx];
-  const { data: leaderboardRankings } = trpc.capital.rankings.useQuery(
+  const { data: leaderboardRankingsRaw } = trpc.capital.rankings.useQuery(
     { market: leaderboardCombo.market, type: leaderboardCombo.category, month: "overall" },
     { enabled: true }
+  );
+  const leaderboardRankings = useMemo(
+    () => (leaderboardRankingsRaw ?? [])
+      .filter((r) => r.code)
+      .map((r, i) => ({ ...r, rank: i + 1 })),
+    [leaderboardRankingsRaw]
   );
 
   // Mutations
@@ -164,8 +170,15 @@ export default function Dashboard() {
     },
   ], [activeMonth, formatCurrency]);
 
-  // KPI data
-  const safeRankings = rankings || [];
+  // KPI data — only participants who have a code for the active market are
+  // surfaced publicly; ranks are renumbered after filtering so positions
+  // remain 1, 2, 3, ... without gaps.
+  const safeRankings = useMemo(
+    () => (rankings ?? [])
+      .filter((r) => r.code)
+      .map((r, i) => ({ ...r, rank: i + 1 })),
+    [rankings]
+  );
   const topPerformer = safeRankings[0];
   const bestMonthlyReturn = safeRankings.length > 0
     ? Math.max(...safeRankings.map((r) => r.monthRecords.length > 0 ? Math.max(...r.monthRecords.map((m) => m.changePercent)) : 0))

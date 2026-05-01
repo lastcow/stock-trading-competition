@@ -22,8 +22,10 @@ export default function AdminEntry() {
   }, []);
   const [month, setMonth] = useState<number>(initialMonth);
   // Inputs keyed by `${groupIdx}:${participantId}` so the same participant
-  // can have separate values per market section.
-  const [inputs, setInputs] = useState<Record<string, string>>({});
+  // can have separate values per market section. Each row stores both the
+  // capital amount and the growth %; whichever the admin types last updates
+  // the other (relative to that row's previous-month capital).
+  const [inputs, setInputs] = useState<Record<string, { capital: string; pct: string }>>({});
   const [status, setStatus] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const { data: config } = trpc.competition.get.useQuery();
@@ -65,16 +67,42 @@ export default function AdminEntry() {
     },
   });
 
+  const setCapital = useCallback((key: string, value: string, prevCapital: number) => {
+    setInputs((prev) => {
+      const trimmed = value.trim();
+      const num = Number(trimmed);
+      const pct =
+        trimmed !== "" && !isNaN(num) && prevCapital > 0
+          ? (((num - prevCapital) / prevCapital) * 100).toFixed(2)
+          : "";
+      return { ...prev, [key]: { capital: trimmed, pct } };
+    });
+  }, []);
+
+  const setPct = useCallback((key: string, value: string, prevCapital: number) => {
+    setInputs((prev) => {
+      const trimmed = value.trim();
+      // Allow partial inputs like "-", "5.", "."  while still updating capital
+      // from any value that parses as a finite number.
+      const num = Number(trimmed);
+      const capital =
+        trimmed !== "" && !isNaN(num) && isFinite(num)
+          ? (prevCapital * (1 + num / 100)).toFixed(2)
+          : "";
+      return { ...prev, [key]: { capital, pct: trimmed } };
+    });
+  }, []);
+
   const handleSaveAll = useCallback(() => {
     const entries = Object.entries(inputs)
-      .map(([key, val]) => {
+      .map(([key, row]) => {
         const [groupIdx, pid] = key.split(":");
         const combo = MARKET_CATEGORY_COMBINATIONS[Number(groupIdx)];
         return {
           participantId: Number(pid),
           market: combo.market,
           month,
-          capital: Number(val),
+          capital: Number(row.capital),
         };
       })
       .filter((e) => !isNaN(e.capital) && e.capital > 0);
@@ -107,7 +135,7 @@ export default function AdminEntry() {
   };
 
   const unsavedCount = Object.values(inputs).filter(
-    (v) => v && !isNaN(Number(v)) && Number(v) > 0
+    (v) => v && v.capital && !isNaN(Number(v.capital)) && Number(v.capital) > 0
   ).length;
 
   return (
@@ -221,6 +249,9 @@ export default function AdminEntry() {
                         {MONTH_LABELS[month]} 资金
                       </th>
                       <th className="px-4 py-3 text-right text-xs font-semibold" style={{ color: "#64748B" }}>
+                        增长 %
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold" style={{ color: "#64748B" }}>
                         盈亏
                       </th>
                       <th className="px-4 py-3 text-right text-xs font-semibold" style={{ color: "#64748B" }}>
@@ -236,11 +267,12 @@ export default function AdminEntry() {
                         .filter((mr) => mr.month < month)
                         .sort((a, b) => b.month - a.month)[0];
                       const prevCapital = prevRecord?.capital ?? initialCapital;
-                      const typed = inputs[inputKey] ?? "";
-                      const typedNum = Number(typed);
-                      const validTyped = typed !== "" && !isNaN(typedNum) && typedNum > 0;
+                      const row = inputs[inputKey] ?? { capital: "", pct: "" };
+                      const typedCap = Number(row.capital);
+                      const validTyped =
+                        row.capital !== "" && !isNaN(typedCap) && typedCap > 0;
                       const displayedNew = validTyped
-                        ? typedNum
+                        ? typedCap
                         : existingRecord?.capital ?? null;
                       const change = displayedNew != null ? displayedNew - prevCapital : null;
 
@@ -261,13 +293,25 @@ export default function AdminEntry() {
                               min="0"
                               step="0.01"
                               placeholder={existingRecord ? String(existingRecord.capital) : "输入金额"}
-                              value={typed}
-                              onChange={(e) =>
-                                setInputs((prev) => ({ ...prev, [inputKey]: e.target.value }))
-                              }
+                              value={row.capital}
+                              onChange={(e) => setCapital(inputKey, e.target.value, prevCapital)}
                               className="w-36 rounded-lg border px-3 py-1.5 text-right text-sm outline-none focus:border-[#4F46E5] focus:ring-2"
                               style={{ borderColor: "#E2E8F0" }}
                             />
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-end gap-1">
+                              <input
+                                type="number"
+                                step="0.01"
+                                placeholder="±%"
+                                value={row.pct}
+                                onChange={(e) => setPct(inputKey, e.target.value, prevCapital)}
+                                className="w-20 rounded-lg border px-2 py-1.5 text-right text-sm outline-none focus:border-[#4F46E5] focus:ring-2"
+                                style={{ borderColor: "#E2E8F0" }}
+                              />
+                              <span className="text-xs" style={{ color: "#94A3B8" }}>%</span>
+                            </div>
                           </td>
                           <td
                             className="px-4 py-3 text-right font-medium"
