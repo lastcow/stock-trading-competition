@@ -159,18 +159,6 @@ export default function Dashboard() {
       sortable: true,
       sortKey: (item) => item.totalReturn,
     },
-    {
-      key: "bestMonth", title: "最佳月份", align: "center",
-      render: (item) => item.bestMonth > 0
-        ? <span className="text-xs font-medium" style={{ color: "#059669" }}>{MONTH_LABELS[item.bestMonth]}</span>
-        : <span className="text-xs" style={{ color: "#CBD5E1" }}>-</span>,
-    },
-    {
-      key: "worstMonth", title: "最差月份", align: "center",
-      render: (item) => item.worstMonth > 0
-        ? <span className="text-xs font-medium" style={{ color: "#DC2626" }}>{MONTH_LABELS[item.worstMonth]}</span>
-        : <span className="text-xs" style={{ color: "#CBD5E1" }}>-</span>,
-    },
   ], [activeMonth, formatCurrency]);
 
   // KPI data — only participants who have a code for the active market are
@@ -546,8 +534,6 @@ export default function Dashboard() {
                   {item.totalReturn >= 0 ? "+" : ""}{item.totalReturn.toFixed(2)}%
                 </span>
               ), sortable: true, sortKey: (item: RankingItem) => item.totalReturn },
-              { key: "best", title: "最佳月份", align: "center", render: (item: RankingItem) => item.bestMonth > 0 ? <span className="text-xs font-medium" style={{ color: "#059669" }}>{MONTH_LABELS[item.bestMonth]}</span> : <span style={{ color: "#CBD5E1" }}>-</span> },
-              { key: "worst", title: "最差月份", align: "center", render: (item: RankingItem) => item.worstMonth > 0 ? <span className="text-xs font-medium" style={{ color: "#DC2626" }}>{MONTH_LABELS[item.worstMonth]}</span> : <span style={{ color: "#CBD5E1" }}>-</span> },
             ]}
             data={leaderboardRankings}
             keyExtractor={(item) => item.participantId}
