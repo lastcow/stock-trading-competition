@@ -21,6 +21,8 @@ type Participant = {
   id: number;
   name: string;
   type: string;
+  aSharesCode: string | null;
+  usStocksCode: string | null;
   avatar: string | null;
   createdAt: Date;
 };
@@ -32,6 +34,8 @@ export default function AdminParticipants() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [editType, setEditType] = useState<Category>("PERSONAL");
+  const [editAShares, setEditAShares] = useState("");
+  const [editUsStocks, setEditUsStocks] = useState("");
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkConfirming, setBulkConfirming] = useState(false);
@@ -39,6 +43,8 @@ export default function AdminParticipants() {
 
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState<Category>("PERSONAL");
+  const [newAShares, setNewAShares] = useState("");
+  const [newUsStocks, setNewUsStocks] = useState("");
 
   const { data: participants = [] } = trpc.participant.list.useQuery();
 
@@ -56,6 +62,8 @@ export default function AdminParticipants() {
     onSuccess: () => {
       invalidate();
       setNewName("");
+      setNewAShares("");
+      setNewUsStocks("");
       flash("success", "已添加");
     },
     onError: (e) => flash("error", e.message),
@@ -120,6 +128,8 @@ export default function AdminParticipants() {
     setEditingId(p.id);
     setEditName(p.name);
     setEditType(p.type as Category);
+    setEditAShares(p.aSharesCode ?? "");
+    setEditUsStocks(p.usStocksCode ?? "");
   }
 
   function commitEdit() {
@@ -129,7 +139,13 @@ export default function AdminParticipants() {
       flash("error", "名称不能为空");
       return;
     }
-    updateMut.mutate({ id: editingId, name, type: editType });
+    updateMut.mutate({
+      id: editingId,
+      name,
+      type: editType,
+      aSharesCode: editAShares.trim() || null,
+      usStocksCode: editUsStocks.trim() || null,
+    });
   }
 
   function handleDelete(id: number) {
@@ -156,7 +172,12 @@ export default function AdminParticipants() {
   function handleAdd() {
     const name = newName.trim();
     if (!name) return;
-    createMut.mutate({ name, type: newType });
+    createMut.mutate({
+      name,
+      type: newType,
+      aSharesCode: newAShares.trim() || null,
+      usStocksCode: newUsStocks.trim() || null,
+    });
   }
 
   const renderRow = (p: Participant) => {
@@ -218,6 +239,38 @@ export default function AdminParticipants() {
               {p.type === "PERSONAL" ? <User size={12} /> : <Users size={12} />}
               {CATEGORY_LABELS[p.type as Category]}
             </span>
+          )}
+        </td>
+        <td className="px-4 py-3">
+          {isEditing ? (
+            <input
+              type="text"
+              value={editAShares}
+              onChange={(e) => setEditAShares(e.target.value)}
+              placeholder="A股代号"
+              className="w-32 rounded-lg border px-3 py-1.5 font-mono text-xs outline-none focus:border-[#4F46E5]"
+              style={{ borderColor: "#E2E8F0" }}
+            />
+          ) : p.aSharesCode ? (
+            <span className="font-mono text-xs" style={{ color: "#0F172A" }}>{p.aSharesCode}</span>
+          ) : (
+            <span className="text-xs" style={{ color: "#CBD5E1" }}>—</span>
+          )}
+        </td>
+        <td className="px-4 py-3">
+          {isEditing ? (
+            <input
+              type="text"
+              value={editUsStocks}
+              onChange={(e) => setEditUsStocks(e.target.value)}
+              placeholder="美股代号"
+              className="w-32 rounded-lg border px-3 py-1.5 font-mono text-xs outline-none focus:border-[#4F46E5]"
+              style={{ borderColor: "#E2E8F0" }}
+            />
+          ) : p.usStocksCode ? (
+            <span className="font-mono text-xs" style={{ color: "#0F172A" }}>{p.usStocksCode}</span>
+          ) : (
+            <span className="text-xs" style={{ color: "#CBD5E1" }}>—</span>
           )}
         </td>
         <td className="px-4 py-3 text-xs" style={{ color: "#94A3B8" }}>
@@ -315,6 +368,12 @@ export default function AdminParticipants() {
                   类型
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: "#64748B" }}>
+                  A股代号
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: "#64748B" }}>
+                  美股代号
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: "#64748B" }}>
                   添加日期
                 </th>
                 <th className="px-4 py-3 text-right text-xs font-semibold" style={{ color: "#64748B" }}>
@@ -383,7 +442,7 @@ export default function AdminParticipants() {
         <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold" style={{ color: "#334155" }}>
           <UserPlus size={16} color="#4F46E5" /> 添加参赛者
         </h3>
-        <div className="flex flex-wrap gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <input
             type="text"
             placeholder="姓名 / 团队名"
@@ -392,7 +451,7 @@ export default function AdminParticipants() {
             onKeyDown={(e) => {
               if (e.key === "Enter") handleAdd();
             }}
-            className="flex-1 min-w-[220px] rounded-lg border px-3 py-2 text-sm outline-none focus:border-[#4F46E5] focus:ring-2"
+            className="rounded-lg border px-3 py-2 text-sm outline-none focus:border-[#4F46E5] focus:ring-2 lg:col-span-2"
             style={{ borderColor: "#E2E8F0" }}
           />
           <select
@@ -404,6 +463,33 @@ export default function AdminParticipants() {
             <option value="PERSONAL">个人</option>
             <option value="TEAM">团队</option>
           </select>
+          <input
+            type="text"
+            placeholder="A股代号 (选填)"
+            value={newAShares}
+            onChange={(e) => setNewAShares(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleAdd();
+            }}
+            className="rounded-lg border px-3 py-2 font-mono text-sm outline-none focus:border-[#4F46E5] focus:ring-2"
+            style={{ borderColor: "#E2E8F0" }}
+          />
+          <input
+            type="text"
+            placeholder="美股代号 (选填)"
+            value={newUsStocks}
+            onChange={(e) => setNewUsStocks(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleAdd();
+            }}
+            className="rounded-lg border px-3 py-2 font-mono text-sm outline-none focus:border-[#4F46E5] focus:ring-2"
+            style={{ borderColor: "#E2E8F0" }}
+          />
+        </div>
+        <div className="mt-3 flex items-center justify-between">
+          <p className="text-xs" style={{ color: "#94A3B8" }}>
+            新参赛者将同时参与 A股 与 美股 两个市场，代号选填
+          </p>
           <button
             onClick={handleAdd}
             disabled={createMut.isPending || !newName.trim()}
@@ -413,9 +499,6 @@ export default function AdminParticipants() {
             {createMut.isPending ? "添加中..." : "添加"}
           </button>
         </div>
-        <p className="mt-2 text-xs" style={{ color: "#94A3B8" }}>
-          新参赛者将同时参与 A股 与 美股 两个市场
-        </p>
       </section>
 
       {renderSection("个人", <User size={16} color="#4F46E5" />, personals)}

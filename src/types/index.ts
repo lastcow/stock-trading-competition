@@ -5,6 +5,8 @@ export interface Participant {
   id: number;
   name: string;
   type: Category;
+  aSharesCode?: string | null;
+  usStocksCode?: string | null;
   avatar?: string;
   createdAt: Date;
 }

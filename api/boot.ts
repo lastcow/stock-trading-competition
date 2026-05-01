@@ -28,6 +28,12 @@ export default app;
 // Idempotent migration: move `market` from participants -> capital_records.
 // Safe to run on a fresh DB (creates tables via initial schema first elsewhere)
 // or on a DB still on the old schema (backfills then drops).
+async function migrateParticipantCodes() {
+  const db = getDb();
+  await db.execute(sql`ALTER TABLE participants ADD COLUMN IF NOT EXISTS a_shares_code varchar(64)`);
+  await db.execute(sql`ALTER TABLE participants ADD COLUMN IF NOT EXISTS us_stocks_code varchar(64)`);
+}
+
 async function migrateMarketToRecords() {
   const db = getDb();
 
@@ -67,6 +73,7 @@ async function seedDatabase() {
     console.log("Checking database state...");
 
     await migrateMarketToRecords();
+    await migrateParticipantCodes();
 
     if (process.env.RESET_DB === "true") {
       console.log("⚠️  RESET_DB=true: wiping capital_records and participants before reseeding...");

@@ -14,6 +14,8 @@ export const participants = pgTable("participants", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   type: varchar("type", { length: 20 }).notNull(), // 'PERSONAL' | 'TEAM'
+  aSharesCode: varchar("a_shares_code", { length: 64 }),
+  usStocksCode: varchar("us_stocks_code", { length: 64 }),
   avatar: text("avatar"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

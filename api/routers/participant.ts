@@ -35,6 +35,8 @@ export const participantRouter = createRouter({
       z.object({
         name: z.string().min(1).max(255),
         type: z.enum(["PERSONAL", "TEAM"]),
+        aSharesCode: z.string().max(64).optional().nullable(),
+        usStocksCode: z.string().max(64).optional().nullable(),
         avatar: z.string().optional(),
       })
     )
@@ -50,6 +52,8 @@ export const participantRouter = createRouter({
         id: z.number(),
         name: z.string().min(1).max(255).optional(),
         type: z.enum(["PERSONAL", "TEAM"]).optional(),
+        aSharesCode: z.string().max(64).nullable().optional(),
+        usStocksCode: z.string().max(64).nullable().optional(),
         avatar: z.string().optional(),
       })
     )
