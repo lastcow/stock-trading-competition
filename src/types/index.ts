@@ -37,6 +37,7 @@ export interface RankingItem {
   rank: number;
   participantId: number;
   participantName: string;
+  code: string | null;
   initialCapital: number;
   currentCapital: number;
   change: number;

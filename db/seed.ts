@@ -35,21 +35,28 @@ async function seed() {
   const existingParticipants = await db.query.participants.findMany();
 
   if (existingParticipants.length === 0) {
+    const personalNames = [
+      "张昊天", "李思远", "王梓涵", "陈俊杰",
+      "Michael Chen", "Sarah Liu", "David Wang", "Emily Zhang",
+    ];
+    const teamNames = [
+      "雄鹰战队", "猛龙组合", "猎豹投资",
+      "Tiger Fund", "Dragon Capital", "Phoenix Group",
+    ];
+    const pad = (n: number) => String(n).padStart(3, "0");
     const demoParticipants = [
-      { name: "张昊天", type: "PERSONAL" },
-      { name: "李思远", type: "PERSONAL" },
-      { name: "王梓涵", type: "PERSONAL" },
-      { name: "陈俊杰", type: "PERSONAL" },
-      { name: "Michael Chen", type: "PERSONAL" },
-      { name: "Sarah Liu", type: "PERSONAL" },
-      { name: "David Wang", type: "PERSONAL" },
-      { name: "Emily Zhang", type: "PERSONAL" },
-      { name: "雄鹰战队", type: "TEAM" },
-      { name: "猛龙组合", type: "TEAM" },
-      { name: "猎豹投资", type: "TEAM" },
-      { name: "Tiger Fund", type: "TEAM" },
-      { name: "Dragon Capital", type: "TEAM" },
-      { name: "Phoenix Group", type: "TEAM" },
+      ...personalNames.map((name, i) => ({
+        name,
+        type: "PERSONAL",
+        aSharesCode: `AP${pad(i + 1)}`,
+        usStocksCode: `UP${pad(i + 1)}`,
+      })),
+      ...teamNames.map((name, i) => ({
+        name,
+        type: "TEAM",
+        aSharesCode: `AT${pad(i + 1)}`,
+        usStocksCode: `UT${pad(i + 1)}`,
+      })),
     ];
 
     for (const p of demoParticipants) {

@@ -12,6 +12,8 @@ interface PerformanceChartProps {
   initialCapital: number;
 }
 
+const labelFor = (item: RankingItem) => item.code ?? `#${item.participantId}`;
+
 export default function PerformanceChart({ data, initialCapital }: PerformanceChartProps) {
   const chartData = useMemo(() => {
     const months = [4, 5, 6, 7, 8, 9];
@@ -19,7 +21,7 @@ export default function PerformanceChart({ data, initialCapital }: PerformanceCh
       const entry: Record<string, number | string> = { month: MONTH_LABELS[m], monthNum: m };
       data.forEach((item) => {
         const record = item.monthRecords.find((r) => r.month === m);
-        entry[item.participantName] = record ? record.capital : initialCapital;
+        entry[labelFor(item)] = record ? record.capital : initialCapital;
       });
       return entry;
     });
@@ -55,7 +57,7 @@ export default function PerformanceChart({ data, initialCapital }: PerformanceCh
           <Line
             key={item.participantId}
             type="monotone"
-            dataKey={item.participantName}
+            dataKey={labelFor(item)}
             stroke={COLORS[idx % COLORS.length]}
             strokeWidth={2}
             dot={{ r: 3 }}

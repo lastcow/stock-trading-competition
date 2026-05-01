@@ -83,11 +83,14 @@ export const capitalRouter = createRouter({
           )
           .orderBy(capitalRecords.month);
 
+        const code = input.market === "A_SHARES" ? p.aSharesCode : p.usStocksCode;
+
         if (records.length === 0) {
           rankings.push({
             rank: 0,
             participantId: p.id,
             participantName: p.name,
+            code,
             initialCapital,
             currentCapital: initialCapital,
             change: 0,
@@ -120,6 +123,7 @@ export const capitalRouter = createRouter({
           rank: 0,
           participantId: p.id,
           participantName: p.name,
+          code,
           initialCapital,
           currentCapital: latestCapital,
           change: totalChange,
