@@ -34,6 +34,24 @@ async function migrateParticipantCodes() {
   await db.execute(sql`ALTER TABLE participants ADD COLUMN IF NOT EXISTS us_stocks_code varchar(64)`);
 }
 
+async function migrateMarketIndexes() {
+  const db = getDb();
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS market_indexes (
+      id serial PRIMARY KEY,
+      market varchar(20) NOT NULL,
+      month integer NOT NULL,
+      change_percent numeric(10, 4) NOT NULL,
+      input_by varchar(255) NOT NULL,
+      input_at timestamp DEFAULT now() NOT NULL
+    )
+  `);
+  await db.execute(sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS market_index_unique
+    ON market_indexes (market, month)
+  `);
+}
+
 async function migrateMarketToRecords() {
   const db = getDb();
 
@@ -74,6 +92,7 @@ async function seedDatabase() {
 
     await migrateMarketToRecords();
     await migrateParticipantCodes();
+    await migrateMarketIndexes();
 
     if (process.env.RESET_DB === "true") {
       console.log("⚠️  RESET_DB=true: wiping capital_records and participants before reseeding...");

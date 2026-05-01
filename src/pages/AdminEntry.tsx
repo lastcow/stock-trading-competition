@@ -10,7 +10,7 @@ import {
   MONTHS,
   type Market,
 } from "@/types";
-import { Save, ArrowLeft, Calendar, CheckCircle2, AlertCircle } from "lucide-react";
+import { Save, ArrowLeft, Calendar, CheckCircle2, AlertCircle, TrendingUp } from "lucide-react";
 
 export default function AdminEntry() {
   const { isAdmin, isLoading } = useAuthContext();
@@ -26,9 +26,15 @@ export default function AdminEntry() {
   // capital amount and the growth %; whichever the admin types last updates
   // the other (relative to that row's previous-month capital).
   const [inputs, setInputs] = useState<Record<string, { capital: string; pct: string }>>({});
+  // Index % inputs for the selected month, keyed by market.
+  const [indexInputs, setIndexInputs] = useState<Record<Market, string>>({
+    A_SHARES: "",
+    US_STOCKS: "",
+  });
   const [status, setStatus] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const { data: config } = trpc.competition.get.useQuery();
+  const { data: indexes } = trpc.marketIndex.list.useQuery();
 
   const q0 = trpc.capital.rankings.useQuery({
     market: MARKET_CATEGORY_COMBINATIONS[0].market,
@@ -52,20 +58,8 @@ export default function AdminEntry() {
   });
   const groupQueries = [q0, q1, q2, q3];
 
-  const batchSave = trpc.capital.batchSave.useMutation({
-    onSuccess: (results) => {
-      utils.capital.rankings.invalidate();
-      utils.capital.byMarketCategory.invalidate();
-      utils.capital.byParticipant.invalidate();
-      setStatus({ type: "success", text: `已保存 ${results.length} 条记录` });
-      setInputs({});
-      setTimeout(() => setStatus(null), 4000);
-    },
-    onError: (err) => {
-      setStatus({ type: "error", text: `保存失败：${err.message}` });
-      setTimeout(() => setStatus(null), 6000);
-    },
-  });
+  const batchSave = trpc.capital.batchSave.useMutation();
+  const indexSave = trpc.marketIndex.save.useMutation();
 
   const setCapital = useCallback((key: string, value: string, prevCapital: number) => {
     setInputs((prev) => {
@@ -93,7 +87,7 @@ export default function AdminEntry() {
     });
   }, []);
 
-  const handleSaveAll = useCallback(() => {
+  const handleSaveAll = useCallback(async () => {
     const entries = Object.entries(inputs)
       .map(([key, row]) => {
         const [groupIdx, pid] = key.split(":");
@@ -107,13 +101,46 @@ export default function AdminEntry() {
       })
       .filter((e) => !isNaN(e.capital) && e.capital > 0);
 
-    if (entries.length === 0) {
-      setStatus({ type: "error", text: "请至少输入一项资金数额" });
+    const indexEntries = (Object.entries(indexInputs) as Array<[Market, string]>)
+      .filter(([, v]) => v.trim() !== "" && !isNaN(Number(v)))
+      .map(([market, v]) => ({ market, month, changePercent: Number(v) }));
+
+    if (entries.length === 0 && indexEntries.length === 0) {
+      setStatus({ type: "error", text: "请至少输入一项数据" });
       setTimeout(() => setStatus(null), 3000);
       return;
     }
-    batchSave.mutate(entries);
-  }, [inputs, month, batchSave]);
+
+    try {
+      const indexPromises = indexEntries.map((ie) => indexSave.mutateAsync(ie));
+      await Promise.all(indexPromises);
+
+      let savedRecords = 0;
+      if (entries.length > 0) {
+        const results = await batchSave.mutateAsync(entries);
+        savedRecords = results.length;
+      }
+
+      utils.capital.rankings.invalidate();
+      utils.capital.byMarketCategory.invalidate();
+      utils.capital.byParticipant.invalidate();
+      utils.marketIndex.list.invalidate();
+
+      const parts: string[] = [];
+      if (savedRecords > 0) parts.push(`${savedRecords} 条记录`);
+      if (indexEntries.length > 0) parts.push(`${indexEntries.length} 项指数`);
+      setStatus({ type: "success", text: `已保存 ${parts.join(" + ")}` });
+      setInputs({});
+      setIndexInputs({ A_SHARES: "", US_STOCKS: "" });
+      setTimeout(() => setStatus(null), 4000);
+    } catch (err) {
+      setStatus({
+        type: "error",
+        text: `保存失败：${err instanceof Error ? err.message : String(err)}`,
+      });
+      setTimeout(() => setStatus(null), 6000);
+    }
+  }, [inputs, indexInputs, month, batchSave, indexSave, utils]);
 
   if (isLoading) {
     return (
@@ -137,6 +164,14 @@ export default function AdminEntry() {
   const unsavedCount = Object.values(inputs).filter(
     (v) => v && v.capital && !isNaN(Number(v.capital)) && Number(v.capital) > 0
   ).length;
+  const unsavedIndexCount = Object.values(indexInputs).filter(
+    (v) => v.trim() !== "" && !isNaN(Number(v))
+  ).length;
+  const totalUnsaved = unsavedCount + unsavedIndexCount;
+  const isSaving = batchSave.isPending || indexSave.isPending;
+
+  const indexFor = (market: Market) =>
+    (indexes ?? []).find((i) => i.market === market && i.month === month);
 
   return (
     <div className="flex flex-col gap-6">
@@ -175,12 +210,12 @@ export default function AdminEntry() {
           </div>
           <button
             onClick={handleSaveAll}
-            disabled={batchSave.isPending || unsavedCount === 0}
+            disabled={isSaving || totalUnsaved === 0}
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-all disabled:opacity-40"
             style={{ background: "#4F46E5" }}
           >
             <Save size={16} />
-            {batchSave.isPending ? "保存中..." : `保存全部 (${unsavedCount})`}
+            {isSaving ? "保存中..." : `保存全部 (${totalUnsaved})`}
           </button>
         </div>
       </div>
@@ -199,6 +234,50 @@ export default function AdminEntry() {
           {status.text}
         </div>
       )}
+
+      {/* Market indexes */}
+      <section className="rounded-2xl border bg-white p-6" style={{ borderColor: "#E2E8F0" }}>
+        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold" style={{ color: "#334155" }}>
+          <TrendingUp size={16} color="#4F46E5" /> 市场指数 · {MONTH_LABELS[month]}
+        </h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {(["A_SHARES", "US_STOCKS"] as Market[]).map((market) => {
+            const existing = indexFor(market);
+            const label = market === "A_SHARES" ? "上证指数" : "标普 500";
+            return (
+              <div key={market} className="flex items-center gap-3">
+                <span className="w-24 text-sm font-medium" style={{ color: "#334155" }}>{label}</span>
+                <div className="flex flex-1 items-center gap-1">
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder={existing ? Number(existing.changePercent).toFixed(2) : "±%"}
+                    value={indexInputs[market]}
+                    onChange={(e) =>
+                      setIndexInputs((prev) => ({ ...prev, [market]: e.target.value }))
+                    }
+                    className="w-full rounded-lg border px-3 py-1.5 text-right text-sm outline-none focus:border-[#4F46E5] focus:ring-2"
+                    style={{ borderColor: "#E2E8F0" }}
+                  />
+                  <span className="text-xs" style={{ color: "#94A3B8" }}>%</span>
+                </div>
+                {existing && (
+                  <span
+                    className="text-xs"
+                    style={{ color: Number(existing.changePercent) >= 0 ? "#059669" : "#DC2626" }}
+                  >
+                    当前: {Number(existing.changePercent) >= 0 ? "+" : ""}
+                    {Number(existing.changePercent).toFixed(2)}%
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-xs" style={{ color: "#94A3B8" }}>
+          指数仅用于团队赛筛选，不在主页显示
+        </p>
+      </section>
 
       {/* Groups */}
       {MARKET_CATEGORY_COMBINATIONS.map((combo, idx) => {
@@ -359,22 +438,22 @@ export default function AdminEntry() {
         );
       })}
 
-      {unsavedCount > 0 && (
+      {totalUnsaved > 0 && (
         <div
           className="sticky bottom-4 z-40 flex items-center justify-between gap-3 rounded-xl border bg-white px-5 py-3 shadow-lg"
           style={{ borderColor: "#E2E8F0" }}
         >
           <span className="text-sm font-medium" style={{ color: "#0F172A" }}>
-            {unsavedCount} 项待保存 · {MONTH_LABELS[month]}
+            {totalUnsaved} 项待保存 · {MONTH_LABELS[month]}
           </span>
           <button
             onClick={handleSaveAll}
-            disabled={batchSave.isPending}
+            disabled={isSaving}
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-all disabled:opacity-40"
             style={{ background: "#4F46E5" }}
           >
             <Save size={16} />
-            {batchSave.isPending ? "保存中..." : "保存全部"}
+            {isSaving ? "保存中..." : "保存全部"}
           </button>
         </div>
       )}

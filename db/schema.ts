@@ -55,6 +55,21 @@ export const competitionConfig = pgTable("competition_config", {
 export type CompetitionConfig = typeof competitionConfig.$inferSelect;
 export type InsertCompetitionConfig = typeof competitionConfig.$inferInsert;
 
+// ===== Market Indexes (上证指数 / 标普500) =====
+export const marketIndexes = pgTable("market_indexes", {
+  id: serial("id").primaryKey(),
+  market: varchar("market", { length: 20 }).notNull(), // 'A_SHARES' | 'US_STOCKS'
+  month: integer("month").notNull(), // 4-9
+  changePercent: numeric("change_percent", { precision: 10, scale: 4 }).notNull(),
+  inputBy: varchar("input_by", { length: 255 }).notNull(),
+  inputAt: timestamp("input_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("market_index_unique").on(table.market, table.month),
+]);
+
+export type MarketIndex = typeof marketIndexes.$inferSelect;
+export type InsertMarketIndex = typeof marketIndexes.$inferInsert;
+
 // ===== Admin Users =====
 export const adminUsers = pgTable("admin_users", {
   id: serial("id").primaryKey(),

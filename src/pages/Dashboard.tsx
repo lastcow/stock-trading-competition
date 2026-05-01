@@ -47,6 +47,26 @@ export default function Dashboard() {
     { enabled: !!activeMarket }
   );
   const { data: allParticipants } = trpc.participant.list.useQuery();
+  const { data: allIndexes } = trpc.marketIndex.list.useQuery();
+
+  // Index lookup by `${market}:${month}` -> changePercent
+  const indexByKey = useMemo(() => {
+    const m = new Map<string, number>();
+    (allIndexes ?? []).forEach((i) => m.set(`${i.market}:${i.month}`, Number(i.changePercent)));
+    return m;
+  }, [allIndexes]);
+
+  const cumulativeIndexReturn = useCallback(
+    (market: "A_SHARES" | "US_STOCKS") => {
+      let factor = 1;
+      for (const m of MONTHS) {
+        const pct = indexByKey.get(`${market}:${m}`);
+        if (pct !== undefined) factor *= 1 + pct / 100;
+      }
+      return (factor - 1) * 100;
+    },
+    [indexByKey]
+  );
 
   const leaderboardCombo = MARKET_CATEGORY_COMBINATIONS[leaderboardMarketIdx];
   const { data: leaderboardRankingsRaw } = trpc.capital.rankings.useQuery(
@@ -54,11 +74,18 @@ export default function Dashboard() {
     { enabled: true }
   );
   const leaderboardRankings = useMemo(() => {
-    const filtered = (leaderboardRankingsRaw ?? [])
+    let filtered = (leaderboardRankingsRaw ?? [])
       .filter((r) => r.code)
       .map((r, i) => ({ ...r, rank: i + 1 }));
+
+    if (leaderboardCombo.category === "TEAM") {
+      const cumIndex = cumulativeIndexReturn(leaderboardCombo.market);
+      filtered = filtered.filter((r) => r.totalReturn > cumIndex);
+      filtered = filtered.map((r, i) => ({ ...r, rank: i + 1 }));
+    }
+
     return leaderboardCombo.category === "PERSONAL" ? filtered.slice(0, 3) : filtered;
-  }, [leaderboardRankingsRaw, leaderboardCombo.category]);
+  }, [leaderboardRankingsRaw, leaderboardCombo.category, leaderboardCombo.market, cumulativeIndexReturn]);
 
   // Mutations
   const saveRecord = trpc.capital.save.useMutation({
@@ -143,12 +170,29 @@ export default function Dashboard() {
   // KPI data — only participants who have a code for the active market are
   // surfaced publicly; ranks are renumbered after filtering so positions
   // remain 1, 2, 3, ... without gaps. Personal category is capped to top 3.
+  // Team category is filtered to only those beating the market index.
   const safeRankings = useMemo(() => {
-    const filtered = (rankings ?? [])
+    let filtered = (rankings ?? [])
       .filter((r) => r.code)
       .map((r, i) => ({ ...r, rank: i + 1 }));
+
+    if (activeCategory === "TEAM") {
+      filtered = filtered.filter((r) => {
+        if (activeMonth === "overall") {
+          return r.totalReturn > cumulativeIndexReturn(activeMarket);
+        }
+        const month = activeMonth as number;
+        const idxPct = indexByKey.get(`${activeMarket}:${month}`);
+        if (idxPct === undefined) return true;
+        const teamMonth = r.monthRecords.find((mr) => mr.month === month);
+        if (!teamMonth) return false;
+        return teamMonth.changePercent > idxPct;
+      });
+      filtered = filtered.map((r, i) => ({ ...r, rank: i + 1 }));
+    }
+
     return activeCategory === "PERSONAL" ? filtered.slice(0, 3) : filtered;
-  }, [rankings, activeCategory]);
+  }, [rankings, activeCategory, activeMonth, activeMarket, indexByKey, cumulativeIndexReturn]);
   const topPerformer = safeRankings[0];
   const bestMonthlyReturn = safeRankings.length > 0
     ? Math.max(...safeRankings.map((r) => r.monthRecords.length > 0 ? Math.max(...r.monthRecords.map((m) => m.changePercent)) : 0))
