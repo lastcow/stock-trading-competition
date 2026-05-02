@@ -210,6 +210,18 @@ export default function Dashboard() {
         );
       },
     },
+    ...(activeCategory === "TEAM" ? [{
+      key: "market", title: "市场", align: "center" as const,
+      render: (item: Enriched) => (
+        <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium"
+          style={{
+            background: item.market === "A_SHARES" ? "#FEF3C7" : "#DBEAFE",
+            color: item.market === "A_SHARES" ? "#D97706" : "#2563EB",
+          }}>
+          {item.market === "A_SHARES" ? "A股" : "美股"}
+        </span>
+      ),
+    }] : []),
     {
       key: "current", title: activeMonth === "overall" ? "最终资金" : `${MONTH_LABELS[activeMonth as number]}资金`, align: "right",
       render: (item) => <span className="font-semibold">{formatCurrencyFor(item.currentCapital, item.market)}</span>,
@@ -235,7 +247,7 @@ export default function Dashboard() {
       sortable: true,
       sortKey: (item) => item.totalReturn,
     },
-  ], [activeMonth, formatCurrencyFor]);
+  ], [activeMonth, formatCurrencyFor, activeCategory]);
 
   // Public rankings — filter codeless participants, apply per-row team-vs-index
   // filter when in team category, sort by totalReturn, and re-rank.
@@ -575,7 +587,7 @@ export default function Dashboard() {
         {leaderboardRankings && (
           <DataTable
             columns={[
-              { key: "name", title: "参赛用户名", align: "left", render: (item: RankingItem) => {
+              { key: "name", title: "参赛用户名", align: "left", render: (item: Enriched) => {
                 const display = item.code ?? `#${item.participantId}`;
                 return (
                   <div className="flex items-center gap-2">
@@ -584,11 +596,23 @@ export default function Dashboard() {
                   </div>
                 );
               }},
-              { key: "return", title: "总收益率", align: "right", render: (item: RankingItem) => (
+              ...(leaderboardTab.category === "TEAM" ? [{
+                key: "market", title: "市场", align: "center" as const,
+                render: (item: Enriched) => (
+                  <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium"
+                    style={{
+                      background: item.market === "A_SHARES" ? "#FEF3C7" : "#DBEAFE",
+                      color: item.market === "A_SHARES" ? "#D97706" : "#2563EB",
+                    }}>
+                    {item.market === "A_SHARES" ? "A股" : "美股"}
+                  </span>
+                ),
+              }] : []),
+              { key: "return", title: "总收益率", align: "right", render: (item: Enriched) => (
                 <span className="inline-flex items-center rounded-md px-2.5 py-1 text-sm font-bold" style={{ background: item.totalReturn >= 0 ? "#ECFDF5" : "#FEF2F2", color: item.totalReturn >= 0 ? "#059669" : "#DC2626" }}>
                   {item.totalReturn >= 0 ? "+" : ""}{item.totalReturn.toFixed(2)}%
                 </span>
-              ), sortable: true, sortKey: (item: RankingItem) => item.totalReturn },
+              ), sortable: true, sortKey: (item: Enriched) => item.totalReturn },
             ]}
             data={leaderboardRankings}
             keyExtractor={(item) => item.participantId}
