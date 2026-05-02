@@ -6,11 +6,25 @@ import {
 } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { trpc } from "@/providers/trpc";
-import type { RankingItem } from "@/types";
+import type { RankingItem, Market, Category } from "@/types";
 import {
-  MONTH_LABELS, MARKET_LABELS, CATEGORY_LABELS,
-  MARKET_CATEGORY_COMBINATIONS, MONTHS,
+  MONTH_LABELS, MONTHS,
 } from "@/types";
+
+type Enriched = RankingItem & { market: Market };
+
+type DashTab = {
+  key: string;
+  label: string;
+  category: Category;
+  market: Market | null; // null = combined across both markets
+};
+
+const TABS: DashTab[] = [
+  { key: "personal-a", label: "A股 · 个人", category: "PERSONAL", market: "A_SHARES" },
+  { key: "personal-us", label: "美股 · 个人", category: "PERSONAL", market: "US_STOCKS" },
+  { key: "team", label: "团队", category: "TEAM", market: null },
+];
 import StatCard from "@/components/StatCard";
 import PerformanceChart from "@/components/PerformanceChart";
 import RankingChart from "@/components/RankingChart";
@@ -26,26 +40,51 @@ export default function Dashboard() {
   const { isAdmin } = useAuthContext();
   const utils = trpc.useUtils();
 
-  const [activeMarketIdx, setActiveMarketIdx] = useState(0);
+  const [activeTabIdx, setActiveTabIdx] = useState(0);
   const [activeMonth, setActiveMonth] = useState<number | "overall">("overall");
   const [formExpanded, setFormExpanded] = useState(false);
   const [formValues, setFormValues] = useState<Record<number, string>>({});
-  const [leaderboardMarketIdx, setLeaderboardMarketIdx] = useState(0);
+  const [leaderboardTabIdx, setLeaderboardTabIdx] = useState(0);
 
-  const activeCombo = MARKET_CATEGORY_COMBINATIONS[activeMarketIdx];
-  const activeMarket = activeCombo.market;
-  const activeCategory = activeCombo.category;
+  const activeTab = TABS[activeTabIdx];
+  const activeCategory = activeTab.category;
+  const activeMarket = activeTab.market; // null when team tab (combined)
 
   // tRPC queries
   const { data: competition } = trpc.competition.get.useQuery();
   const { data: participants } = trpc.participant.list.useQuery(
     { type: activeCategory },
-    { enabled: !!activeMarket }
+    { enabled: activeMarket !== null }
   );
-  const { data: rankings, isLoading: rankingsLoading } = trpc.capital.rankings.useQuery(
-    { market: activeMarket, type: activeCategory, month: activeMonth },
-    { enabled: !!activeMarket }
+  // Single-market rankings for personal tabs
+  const singleMarketRankingsQ = trpc.capital.rankings.useQuery(
+    { market: activeMarket ?? "A_SHARES", type: activeCategory, month: activeMonth },
+    { enabled: activeMarket !== null }
   );
+  // Both-market team rankings, used by the combined team tab
+  const teamARankingsQ = trpc.capital.rankings.useQuery(
+    { market: "A_SHARES", type: "TEAM", month: activeMonth },
+    { enabled: activeCategory === "TEAM" }
+  );
+  const teamUSRankingsQ = trpc.capital.rankings.useQuery(
+    { market: "US_STOCKS", type: "TEAM", month: activeMonth },
+    { enabled: activeCategory === "TEAM" }
+  );
+
+  const rankingsLoading = activeMarket !== null
+    ? singleMarketRankingsQ.isLoading
+    : teamARankingsQ.isLoading || teamUSRankingsQ.isLoading;
+
+  const rawRankings: Enriched[] = useMemo(() => {
+    if (activeMarket !== null) {
+      return (singleMarketRankingsQ.data ?? []).map((r) => ({ ...r, market: activeMarket }));
+    }
+    return [
+      ...(teamARankingsQ.data ?? []).map((r) => ({ ...r, market: "A_SHARES" as Market })),
+      ...(teamUSRankingsQ.data ?? []).map((r) => ({ ...r, market: "US_STOCKS" as Market })),
+    ];
+  }, [activeMarket, singleMarketRankingsQ.data, teamARankingsQ.data, teamUSRankingsQ.data]);
+
   const { data: allParticipants } = trpc.participant.list.useQuery();
   const { data: allIndexes } = trpc.marketIndex.list.useQuery();
 
@@ -68,24 +107,41 @@ export default function Dashboard() {
     [indexByKey]
   );
 
-  const leaderboardCombo = MARKET_CATEGORY_COMBINATIONS[leaderboardMarketIdx];
-  const { data: leaderboardRankingsRaw } = trpc.capital.rankings.useQuery(
-    { market: leaderboardCombo.market, type: leaderboardCombo.category, month: "overall" },
-    { enabled: true }
+  const leaderboardTab = TABS[leaderboardTabIdx];
+  const leaderboardSingleQ = trpc.capital.rankings.useQuery(
+    { market: leaderboardTab.market ?? "A_SHARES", type: leaderboardTab.category, month: "overall" },
+    { enabled: leaderboardTab.market !== null }
   );
-  const leaderboardRankings = useMemo(() => {
-    let filtered = (leaderboardRankingsRaw ?? [])
-      .filter((r) => r.code)
-      .map((r, i) => ({ ...r, rank: i + 1 }));
+  const leaderboardTeamAQ = trpc.capital.rankings.useQuery(
+    { market: "A_SHARES", type: "TEAM", month: "overall" },
+    { enabled: leaderboardTab.category === "TEAM" }
+  );
+  const leaderboardTeamUSQ = trpc.capital.rankings.useQuery(
+    { market: "US_STOCKS", type: "TEAM", month: "overall" },
+    { enabled: leaderboardTab.category === "TEAM" }
+  );
 
-    if (leaderboardCombo.category === "TEAM") {
-      const cumIndex = cumulativeIndexReturn(leaderboardCombo.market);
-      filtered = filtered.filter((r) => r.totalReturn > cumIndex);
-      filtered = filtered.map((r, i) => ({ ...r, rank: i + 1 }));
+  const leaderboardRankings: Enriched[] = useMemo(() => {
+    let raw: Enriched[];
+    if (leaderboardTab.market !== null) {
+      raw = (leaderboardSingleQ.data ?? []).map((r) => ({ ...r, market: leaderboardTab.market as Market }));
+    } else {
+      raw = [
+        ...(leaderboardTeamAQ.data ?? []).map((r) => ({ ...r, market: "A_SHARES" as Market })),
+        ...(leaderboardTeamUSQ.data ?? []).map((r) => ({ ...r, market: "US_STOCKS" as Market })),
+      ];
+    }
+    let filtered = raw.filter((r) => r.code);
+
+    if (leaderboardTab.category === "TEAM") {
+      filtered = filtered.filter((r) => r.totalReturn > cumulativeIndexReturn(r.market));
     }
 
-    return leaderboardCombo.category === "PERSONAL" ? filtered.slice(0, 3) : filtered;
-  }, [leaderboardRankingsRaw, leaderboardCombo.category, leaderboardCombo.market, cumulativeIndexReturn]);
+    filtered.sort((a, b) => b.totalReturn - a.totalReturn);
+    filtered = filtered.map((r, i) => ({ ...r, rank: i + 1 }));
+
+    return leaderboardTab.category === "PERSONAL" ? filtered.slice(0, 3) : filtered;
+  }, [leaderboardTab.market, leaderboardTab.category, leaderboardSingleQ.data, leaderboardTeamAQ.data, leaderboardTeamUSQ.data, cumulativeIndexReturn]);
 
   // Mutations
   const saveRecord = trpc.capital.save.useMutation({
@@ -95,20 +151,34 @@ export default function Dashboard() {
     },
   });
 
-  const initialCapital = activeMarket === "A_SHARES"
-    ? Number(competition?.initialCapitalAshare ?? 1000000)
-    : Number(competition?.initialCapitalUs ?? 1000000);
+  const initialFor = useCallback(
+    (market: Market) =>
+      market === "A_SHARES"
+        ? Number(competition?.initialCapitalAshare ?? 1000000)
+        : Number(competition?.initialCapitalUs ?? 1000000),
+    [competition?.initialCapitalAshare, competition?.initialCapitalUs]
+  );
 
-  const formatCurrency = useCallback((value: number) => {
-    if (activeMarket === "A_SHARES") return `¥${value.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  // For personal tabs: a single market initial capital. For combined team tab,
+  // both markets are 1M so any value works for the chart's 4月初 anchor.
+  const initialCapital = activeMarket !== null ? initialFor(activeMarket) : 1000000;
+
+  const formatCurrencyFor = useCallback((value: number, market: Market) => {
+    if (market === "A_SHARES") return `¥${value.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
     return `$${value.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-  }, [activeMarket]);
+  }, []);
+
+  const formatCurrency = useCallback(
+    (value: number) => formatCurrencyFor(value, activeMarket ?? "A_SHARES"),
+    [formatCurrencyFor, activeMarket]
+  );
 
   const handleCapitalInput = useCallback((participantId: number, value: string) => {
     setFormValues((prev) => ({ ...prev, [participantId]: value }));
   }, []);
 
   const handleSaveRecord = useCallback((participantId: number) => {
+    if (activeMarket === null) return;
     const capitalStr = formValues[participantId];
     if (!capitalStr || isNaN(Number(capitalStr))) return;
     const month = activeMonth === "overall" ? 9 : (activeMonth as number);
@@ -125,7 +195,7 @@ export default function Dashboard() {
   }, [formValues, activeMonth, activeMarket, saveRecord]);
 
   // Table columns
-  const tableColumns: Column<RankingItem>[] = useMemo(() => [
+  const tableColumns: Column<Enriched>[] = useMemo(() => [
     {
       key: "name", title: "参赛用户名", align: "left",
       render: (item) => {
@@ -142,13 +212,13 @@ export default function Dashboard() {
     },
     {
       key: "current", title: activeMonth === "overall" ? "最终资金" : `${MONTH_LABELS[activeMonth as number]}资金`, align: "right",
-      render: (item) => <span className="font-semibold">{formatCurrency(item.currentCapital)}</span>,
+      render: (item) => <span className="font-semibold">{formatCurrencyFor(item.currentCapital, item.market)}</span>,
     },
     {
       key: "change", title: "累计变动", align: "right",
       render: (item) => (
         <span style={{ color: item.change >= 0 ? "#059669" : "#DC2626" }}>
-          {item.change >= 0 ? "+" : ""}{formatCurrency(item.change)}
+          {item.change >= 0 ? "+" : ""}{formatCurrencyFor(item.change, item.market)}
         </span>
       ),
       sortable: true,
@@ -165,34 +235,33 @@ export default function Dashboard() {
       sortable: true,
       sortKey: (item) => item.totalReturn,
     },
-  ], [activeMonth, formatCurrency]);
+  ], [activeMonth, formatCurrencyFor]);
 
-  // KPI data — only participants who have a code for the active market are
-  // surfaced publicly; ranks are renumbered after filtering so positions
-  // remain 1, 2, 3, ... without gaps. Personal category is capped to top 3.
-  // Team category is filtered to only those beating the market index.
-  const safeRankings = useMemo(() => {
-    let filtered = (rankings ?? [])
-      .filter((r) => r.code)
-      .map((r, i) => ({ ...r, rank: i + 1 }));
+  // Public rankings — filter codeless participants, apply per-row team-vs-index
+  // filter when in team category, sort by totalReturn, and re-rank.
+  // Personal category is capped to top 3.
+  const safeRankings: Enriched[] = useMemo(() => {
+    let filtered = rawRankings.filter((r) => r.code);
 
     if (activeCategory === "TEAM") {
       filtered = filtered.filter((r) => {
         if (activeMonth === "overall") {
-          return r.totalReturn > cumulativeIndexReturn(activeMarket);
+          return r.totalReturn > cumulativeIndexReturn(r.market);
         }
         const month = activeMonth as number;
-        const idxPct = indexByKey.get(`${activeMarket}:${month}`);
+        const idxPct = indexByKey.get(`${r.market}:${month}`);
         if (idxPct === undefined) return true;
         const teamMonth = r.monthRecords.find((mr) => mr.month === month);
         if (!teamMonth) return false;
         return teamMonth.changePercent > idxPct;
       });
-      filtered = filtered.map((r, i) => ({ ...r, rank: i + 1 }));
     }
 
+    filtered.sort((a, b) => b.totalReturn - a.totalReturn);
+    filtered = filtered.map((r, i) => ({ ...r, rank: i + 1 }));
+
     return activeCategory === "PERSONAL" ? filtered.slice(0, 3) : filtered;
-  }, [rankings, activeCategory, activeMonth, activeMarket, indexByKey, cumulativeIndexReturn]);
+  }, [rawRankings, activeCategory, activeMonth, indexByKey, cumulativeIndexReturn]);
   const topPerformer = safeRankings[0];
   const bestMonthlyReturn = safeRankings.length > 0
     ? Math.max(...safeRankings.map((r) => r.monthRecords.length > 0 ? Math.max(...r.monthRecords.map((m) => m.changePercent)) : 0))
@@ -274,16 +343,16 @@ export default function Dashboard() {
         style={{ background: "rgba(255, 255, 255, 0.85)", backdropFilter: "blur(12px)", borderColor: "rgba(226, 232, 240, 0.8)", boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.02)" }}>
         <div className="px-6 pt-5">
           <div className="inline-flex rounded-xl p-1" style={{ background: "#E2E8F0" }}>
-            {MARKET_CATEGORY_COMBINATIONS.map((combo, idx) => (
-              <button key={`${combo.market}-${combo.category}`} onClick={() => setActiveMarketIdx(idx)}
+            {TABS.map((tab, idx) => (
+              <button key={tab.key} onClick={() => setActiveTabIdx(idx)}
                 className="relative flex items-center gap-1.5 rounded-lg px-5 py-2.5 text-sm font-medium transition-all"
                 style={{
-                  color: activeMarketIdx === idx ? "#0F172A" : "#64748B",
-                  background: activeMarketIdx === idx ? "#FFFFFF" : "transparent",
-                  boxShadow: activeMarketIdx === idx ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                  color: activeTabIdx === idx ? "#0F172A" : "#64748B",
+                  background: activeTabIdx === idx ? "#FFFFFF" : "transparent",
+                  boxShadow: activeTabIdx === idx ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
                 }}>
-                {TAB_ICONS[combo.category]}
-                {MARKET_LABELS[combo.market]} · {CATEGORY_LABELS[combo.category]}
+                {TAB_ICONS[tab.category]}
+                {tab.label}
               </button>
             ))}
           </div>
@@ -308,12 +377,12 @@ export default function Dashboard() {
         {/* Tab Content */}
         <div className="p-6">
           <AnimatePresence mode="wait">
-            <motion.div key={`${activeMarketIdx}-${activeMonth}`}
+            <motion.div key={`${activeTabIdx}-${activeMonth}`}
               initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}
               className="flex flex-col gap-6">
 
-              {/* Admin Data Entry */}
-              {isAdmin && (
+              {/* Admin Data Entry — only available on single-market tabs */}
+              {isAdmin && activeMarket !== null && (
                 <div className="overflow-hidden rounded-xl border" style={{ borderColor: "#E2E8F0" }}>
                   <button onClick={() => setFormExpanded(!formExpanded)}
                     className="flex w-full items-center justify-between px-5 py-4 text-left">
@@ -438,16 +507,16 @@ export default function Dashboard() {
         {/* Leaderboard Tabs */}
         <div className="mb-6 flex justify-center">
           <div className="inline-flex rounded-xl p-1" style={{ background: "#E2E8F0" }}>
-            {MARKET_CATEGORY_COMBINATIONS.map((combo, idx) => (
-              <button key={`lb-${combo.market}-${combo.category}`} onClick={() => setLeaderboardMarketIdx(idx)}
+            {TABS.map((tab, idx) => (
+              <button key={`lb-${tab.key}`} onClick={() => setLeaderboardTabIdx(idx)}
                 className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-all"
                 style={{
-                  color: leaderboardMarketIdx === idx ? "#0F172A" : "#64748B",
-                  background: leaderboardMarketIdx === idx ? "#FFFFFF" : "transparent",
-                  boxShadow: leaderboardMarketIdx === idx ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                  color: leaderboardTabIdx === idx ? "#0F172A" : "#64748B",
+                  background: leaderboardTabIdx === idx ? "#FFFFFF" : "transparent",
+                  boxShadow: leaderboardTabIdx === idx ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
                 }}>
-                {TAB_ICONS[combo.category]}
-                {MARKET_LABELS[combo.market]} · {CATEGORY_LABELS[combo.category]}
+                {TAB_ICONS[tab.category]}
+                {tab.label}
               </button>
             ))}
           </div>
@@ -468,7 +537,7 @@ export default function Dashboard() {
                 {leaderboardRankings[1].totalReturn >= 0 ? "+" : ""}{leaderboardRankings[1].totalReturn.toFixed(2)}%
               </span>
               <span className="mt-1 text-xs" style={{ color: "#64748B" }}>
-                {leaderboardCombo.market === "A_SHARES" ? "¥" : "$"}{(leaderboardRankings[1].currentCapital / (leaderboardCombo.market === "A_SHARES" ? 10000 : 1)).toFixed(0)}{leaderboardCombo.market === "A_SHARES" ? "万" : ""}
+                {leaderboardRankings[1].market === "A_SHARES" ? "¥" : "$"}{(leaderboardRankings[1].currentCapital / (leaderboardRankings[1].market === "A_SHARES" ? 10000 : 1)).toFixed(0)}{leaderboardRankings[1].market === "A_SHARES" ? "万" : ""}
               </span>
             </motion.div>
             {/* 1st */}
@@ -482,7 +551,7 @@ export default function Dashboard() {
                 {leaderboardRankings[0].totalReturn >= 0 ? "+" : ""}{leaderboardRankings[0].totalReturn.toFixed(2)}%
               </span>
               <span className="mt-1 text-xs" style={{ color: "#64748B" }}>
-                {leaderboardCombo.market === "A_SHARES" ? "¥" : "$"}{(leaderboardRankings[0].currentCapital / (leaderboardCombo.market === "A_SHARES" ? 10000 : 1)).toFixed(0)}{leaderboardCombo.market === "A_SHARES" ? "万" : ""}
+                {leaderboardRankings[0].market === "A_SHARES" ? "¥" : "$"}{(leaderboardRankings[0].currentCapital / (leaderboardRankings[0].market === "A_SHARES" ? 10000 : 1)).toFixed(0)}{leaderboardRankings[0].market === "A_SHARES" ? "万" : ""}
               </span>
             </motion.div>
             {/* 3rd */}
@@ -496,7 +565,7 @@ export default function Dashboard() {
                 {leaderboardRankings[2].totalReturn >= 0 ? "+" : ""}{leaderboardRankings[2].totalReturn.toFixed(2)}%
               </span>
               <span className="mt-1 text-xs" style={{ color: "#64748B" }}>
-                {leaderboardCombo.market === "A_SHARES" ? "¥" : "$"}{(leaderboardRankings[2].currentCapital / (leaderboardCombo.market === "A_SHARES" ? 10000 : 1)).toFixed(0)}{leaderboardCombo.market === "A_SHARES" ? "万" : ""}
+                {leaderboardRankings[2].market === "A_SHARES" ? "¥" : "$"}{(leaderboardRankings[2].currentCapital / (leaderboardRankings[2].market === "A_SHARES" ? 10000 : 1)).toFixed(0)}{leaderboardRankings[2].market === "A_SHARES" ? "万" : ""}
               </span>
             </motion.div>
           </motion.div>
