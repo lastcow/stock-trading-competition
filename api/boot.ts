@@ -101,18 +101,23 @@ async function seedDatabase() {
       console.log("Wiped. Remove RESET_DB env after this boot to avoid wiping again.");
     }
 
-    const existingAdmin = await db.query.adminUsers.findFirst({
-      where: eq(adminUsers.email, "joy@zheng.me"),
-    });
-
-    if (!existingAdmin) {
-      const { hashSync } = await import("bcryptjs");
-      await db.insert(adminUsers).values({
-        email: "joy@zheng.me",
-        passwordHash: hashSync("Paradise@188", 10),
-        name: "Administrator",
+    const seedAdmins: Array<{ email: string; password: string; name: string }> = [
+      { email: "joy@zheng.me", password: "Paradise@188", name: "Administrator" },
+      { email: "hudson50@hotmail.com", password: "AdminHudS0n5o", name: "Hudson" },
+    ];
+    for (const a of seedAdmins) {
+      const existing = await db.query.adminUsers.findFirst({
+        where: eq(adminUsers.email, a.email),
       });
-      console.log("Admin user created: joy@zheng.me");
+      if (!existing) {
+        const { hashSync } = await import("bcryptjs");
+        await db.insert(adminUsers).values({
+          email: a.email,
+          passwordHash: hashSync(a.password, 10),
+          name: a.name,
+        });
+        console.log(`Admin user created: ${a.email}`);
+      }
     }
 
     const existingConfig = await db.query.competitionConfig.findFirst();
